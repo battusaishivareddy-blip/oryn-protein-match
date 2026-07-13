@@ -85,11 +85,11 @@ function Home() {
         session_key: sessionKey.current || crypto.randomUUID(),
         last_completed_step: 1,
         user_name: name || null,
-        responses: patch,
+        responses: patch as any,
       }).select("id").maybeSingle();
       if (data?.id) setSessionId(data.id);
     } else {
-      await supabase.from("oryn_sessions").update(patch).eq("id", sessionId);
+      await supabase.from("oryn_sessions").update({ responses: patch as any }).eq("id", sessionId);
     }
   }
 
