@@ -14,7 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      oryn_sessions: {
+        Row: {
+          bmi: number | null
+          completed: boolean
+          created_at: string
+          id: string
+          last_completed_step: number
+          matched_budget_brand: string | null
+          matched_ideal_brand: string | null
+          protein_need: number | null
+          responses: Json
+          session_key: string
+          survey_current_brand: string | null
+          survey_frustration: string | null
+          survey_sachet_interest: string | null
+          updated_at: string
+          user_name: string | null
+        }
+        Insert: {
+          bmi?: number | null
+          completed?: boolean
+          created_at?: string
+          id?: string
+          last_completed_step?: number
+          matched_budget_brand?: string | null
+          matched_ideal_brand?: string | null
+          protein_need?: number | null
+          responses?: Json
+          session_key: string
+          survey_current_brand?: string | null
+          survey_frustration?: string | null
+          survey_sachet_interest?: string | null
+          updated_at?: string
+          user_name?: string | null
+        }
+        Update: {
+          bmi?: number | null
+          completed?: boolean
+          created_at?: string
+          id?: string
+          last_completed_step?: number
+          matched_budget_brand?: string | null
+          matched_ideal_brand?: string | null
+          protein_need?: number | null
+          responses?: Json
+          session_key?: string
+          survey_current_brand?: string | null
+          survey_frustration?: string | null
+          survey_sachet_interest?: string | null
+          updated_at?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
+      oryn_visits: {
+        Row: {
+          created_at: string
+          id: string
+          path: string | null
+          visit_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path?: string | null
+          visit_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string | null
+          visit_key?: string
+        }
+        Relationships: []
+      }
+      oryn_waitlist: {
+        Row: {
+          bmi: number | null
+          created_at: string
+          email: string
+          id: string
+          matched_budget_brand: string | null
+          matched_ideal_brand: string | null
+          name: string
+          phone: string
+          protein_need: number | null
+          responses: Json | null
+          session_id: string | null
+          survey_current_brand: string | null
+          survey_frustration: string | null
+          survey_sachet_interest: string | null
+        }
+        Insert: {
+          bmi?: number | null
+          created_at?: string
+          email: string
+          id?: string
+          matched_budget_brand?: string | null
+          matched_ideal_brand?: string | null
+          name: string
+          phone: string
+          protein_need?: number | null
+          responses?: Json | null
+          session_id?: string | null
+          survey_current_brand?: string | null
+          survey_frustration?: string | null
+          survey_sachet_interest?: string | null
+        }
+        Update: {
+          bmi?: number | null
+          created_at?: string
+          email?: string
+          id?: string
+          matched_budget_brand?: string | null
+          matched_ideal_brand?: string | null
+          name?: string
+          phone?: string
+          protein_need?: number | null
+          responses?: Json | null
+          session_id?: string | null
+          survey_current_brand?: string | null
+          survey_frustration?: string | null
+          survey_sachet_interest?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oryn_waitlist_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "oryn_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
