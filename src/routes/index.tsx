@@ -128,21 +128,19 @@ function Home() {
     if (step !== "processing") return;
     let cancelled = false;
 
-    // Kick off Gemini recommendation in parallel with the analysis animation.
-    if (profile && matches) {
+    if (profile) {
       setAiLoading(true);
       setAiRec(null);
-      const summarize = (m: typeof matches.top) =>
-        m ? {
-          brand: m.product.brand, base: m.product.base,
-          proteinPerServing: m.product.proteinPerServing,
-          pricePerKg: m.product.pricePerKg, sweetener: m.product.sweetener,
-          score: m.score,
-        } : null;
       getGeminiRecommendation({
         data: {
-          profile, bmi, proteinNeed,
-          top: summarize(matches.top), budget: summarize(matches.budget),
+          profile: {
+            name: profile.name, age: profile.age, sex: profile.sex,
+            heightCm: profile.heightCm, weightKg: profile.weightKg,
+            objective: profile.objective, activity: profile.activity, diet: profile.diet,
+            gut: profile.gut, sweetener: profile.sweetener, budget: profile.budget,
+            allergens: profile.allergens, flavors: profile.flavors, habit: profile.habit,
+          },
+          bmi, proteinNeed,
         },
       })
         .then((rec) => { if (!cancelled) setAiRec(rec); })
