@@ -1,13 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-
-type MatchSummary = {
-  brand: string;
-  base: string;
-  proteinPerServing: string;
-  pricePerKg: number;
-  sweetener: string;
-  score: number;
-} | null;
+import { PRODUCTS } from "./oryn-data";
 
 export type GeminiRecommendationInput = {
   profile: {
@@ -28,57 +20,73 @@ export type GeminiRecommendationInput = {
   };
   bmi: number;
   proteinNeed: number;
-  top: MatchSummary;
-  budget: MatchSummary;
 };
+
+export type GeminiPick = { brand: string; productName: string; why: string };
 
 export type GeminiRecommendation = {
   headline: string;
-  formulation: string;
   dailyProtocol: string;
   marketVerdict: string;
+  topMatch: GeminiPick | null;
+  budgetMatch: GeminiPick | null;
   source: "gemini" | "fallback";
 };
 
+function catalogForPrompt() {
+  return PRODUCTS.map((p) =>
+    `- ${p.brand} · ${p.productName} | base=${p.base} | ${p.proteinPerServing} | ₹${p.pricePerKg}/kg (${p.priceNote ?? "listed"}) | sweetener=${p.sweetener} | gutFriendly=${p.gutFriendly} | flavors=${p.flavors.join("/")} | note=${p.positioning}`
+  ).join("\n");
+}
+
 function buildPrompt(input: GeminiRecommendationInput): string {
-  const { profile, bmi, proteinNeed, top, budget } = input;
-  return `You are Oryn — India's premium AI plant-protein architect. Speak with quiet, expert confidence, no hype, no emojis.
+  const { profile, bmi, proteinNeed } = input;
+  return `You are Oryn — India's expert AI plant-protein advisor (July 2026). Speak with quiet confidence, no hype, no emojis.
 
 USER PROFILE
-- Name: ${profile.name}
-- Age / Sex: ${profile.age} · ${profile.sex}
-- Height / Weight: ${profile.heightCm}cm · ${profile.weightKg}kg (BMI ${bmi})
-- Objective: ${profile.objective}
-- Activity: ${profile.activity}
-- Diet: ${profile.diet}
-- Gut: ${profile.gut}
-- Sweetener preference: ${profile.sweetener}
-- Budget tier: ${profile.budget}
+- Name: ${profile.name}  |  ${profile.age}yr · ${profile.sex}
+- Body: ${profile.heightCm}cm · ${profile.weightKg}kg (BMI ${bmi})
+- Objective: ${profile.objective}  |  Activity: ${profile.activity}  |  Diet: ${profile.diet}
+- Gut: ${profile.gut}  |  Sweetener pref: ${profile.sweetener}  |  Budget tier: ${profile.budget}
 - Allergens to avoid: ${profile.allergens.join(", ") || "none"}
-- Preferred flavor tags: ${profile.flavors.join(", ") || "unspecified"}
+- Flavor tags requested: ${profile.flavors.join(", ") || "unspecified"}
 - Daily protein target (calculated): ${proteinNeed}g
-- Habit context: ${profile.habit || "not provided"}
+- Supplement history: ${profile.habit || "not provided"}
 
-MARKET CROSS-REFERENCE
-- Top Indian-market match: ${top ? `${top.brand} · ${top.base} · ${top.proteinPerServing} · ₹${top.pricePerKg}/kg · ${top.sweetener} · score ${top.score}` : "none"}
-- Budget alternative: ${budget ? `${budget.brand} · ${budget.base} · ${budget.proteinPerServing} · ₹${budget.pricePerKg}/kg · ${budget.sweetener} · score ${budget.score}` : "none"}
+INDIAN PLANT-PROTEIN CATALOGUE (July 2026 prices, top 20+ brands):
+${catalogForPrompt()}
 
-Return STRICT JSON only, no markdown fencing, matching this shape exactly:
+BIAS CORRECTIONS you MUST honor:
+- Women + gut issues (bloating/IBS) → strongly favor Cosmix No-Nonsense or Origin Nutrition; do NOT default to Earthful/Nakpro.
+- Sweetener = raw/unsweetened → favor AS-IT-IS ONE Pea, Nutrabay Pure, TrueBasics, or Carbamide Forte Pea Isolate.
+- Sucralose products (MuscleBlaze, Kapiva, Fast&Up, Nakpro flavored, GNC, Optimum, Nutrabay Gold) are inappropriate for sensitive guts.
+- Vary picks across sessions — do NOT default to the same one or two brands for every profile.
+- If budget tier is "value" (<₹1,500/kg), pick from GetMyMettle, Nakpro, Nutrabay Pure, AS-IT-IS, Kapiva.
+- If luxury tier, use Cosmix, Wellbeing Nutrition, Origin, TrueBasics, Optimum.
+- The budgetMatch must be a DIFFERENT brand from topMatch and clearly cheaper per kg.
+
+Return STRICT JSON only (no markdown, no fencing) matching this exact shape:
 {
-  "headline": "1 short sentence (max 18 words) addressing ${profile.name.split(" ")[0]} directly.",
-  "formulation": "2-3 sentences describing the exact custom Oryn base built for this user (protein blend ratios, enzyme/gut additions, sweetener choice).",
-  "dailyProtocol": "2-3 sentences prescribing how to split ${proteinNeed}g across the day, timing, and flavor rotation.",
-  "marketVerdict": "2-3 sentences comparing the top and budget Indian-market matches against the custom Oryn formula for this specific body."
+  "headline": "One short sentence (≤18 words) addressed to ${profile.name.split(" ")[0]} — states the market recommendation, not a bespoke formulation.",
+  "dailyProtocol": "2-3 sentences prescribing how to split ${proteinNeed}g across the day, timing, and how to rotate flavors to prevent fatigue.",
+  "marketVerdict": "2-3 sentences of honest market analysis for this specific body — why the top match wins for them and where the budget alt trades off.",
+  "topMatch": { "brand": "<exact brand name from catalogue>", "productName": "<exact product name>", "why": "1-2 sentences on why this specific product fits this body." },
+  "budgetMatch": { "brand": "<different brand>", "productName": "<exact product name>", "why": "1-2 sentences on the price/tradeoff." }
 }`;
 }
 
 function fallback(input: GeminiRecommendationInput): GeminiRecommendation {
   const first = input.profile.name.split(" ")[0] || "there";
+  const isWomanGut = input.profile.sex === "female" && (input.profile.gut === "bloating" || input.profile.gut === "ibs");
+  const topBrand = isWomanGut ? "Cosmix" : input.profile.budget === "value" ? "GetMyMettle" : "Origin Nutrition";
+  const budBrand = input.profile.budget === "value" ? "AS-IT-IS Nutrition" : "Nakpro";
+  const findBy = (b: string) => PRODUCTS.find((p) => p.brand === b);
   return {
-    headline: `${first}, your architecture points to a rotating-base protocol tuned to your gut and objective.`,
-    formulation: `A ${input.profile.diet === "vegan" ? "Pea + Rice + Mung" : "Pea + Rice"} base at roughly ${Math.round(input.proteinNeed / 3)}g per serving, paired with a gut-support enzyme layer and ${input.profile.sweetener === "raw" ? "zero sweetener" : input.profile.sweetener === "monk" ? "monk fruit" : "organic stevia"}. Fillers, gums and synthetic stabilisers are removed by design.`,
-    dailyProtocol: `Split ${input.proteinNeed}g across 2-3 doses — post-training, mid-morning and (optionally) before sleep. Rotate flavors daily to prevent palate fatigue and preserve adherence over 12+ weeks.`,
-    marketVerdict: `Your top Indian-market match (${input.top?.brand ?? "—"}) is closest on macros, and the budget alternative (${input.budget?.brand ?? "—"}) is closest on cost, but both force a single fixed flavor. The custom Oryn formula matches your exact body without that compromise.`,
+    headline: `${first}, from what's on Indian shelves right now, ${topBrand} is the closest fit for your body.`,
+    dailyProtocol: `Split ${input.proteinNeed}g across 2-3 doses — post-training, mid-morning, optionally pre-sleep. Rotate flavor daily to avoid palate fatigue over 12+ weeks.`,
+    marketVerdict: `${topBrand} wins on gut tolerance and label cleanliness for this profile. ${budBrand} is the smart price play if you'd rather save ~30-40% per kg and accept a simpler ingredient story.`,
+    topMatch: findBy(topBrand) ? { brand: topBrand, productName: findBy(topBrand)!.productName, why: "Cleanest label match for your gut and sweetener preferences." } : null,
+    budgetMatch: findBy(budBrand) ? { brand: budBrand, productName: findBy(budBrand)!.productName, why: "Best macro-per-rupee at your budget tier." } : null,
     source: "fallback",
   };
 }
@@ -96,11 +104,7 @@ export const getGeminiRecommendation = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => input as GeminiRecommendationInput)
   .handler(async ({ data }): Promise<GeminiRecommendation> => {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("[Gemini] GEMINI_API_KEY is not configured");
-      return fallback(data);
-    }
-
+    if (!apiKey) return fallback(data);
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -109,32 +113,22 @@ export const getGeminiRecommendation = createServerFn({ method: "POST" })
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: buildPrompt(data) }] }],
-            generationConfig: {
-              temperature: 0.7,
-              responseMimeType: "application/json",
-            },
+            generationConfig: { temperature: 0.85, responseMimeType: "application/json" },
           }),
         },
       );
-
-      if (!res.ok) {
-        const body = await res.text();
-        console.error(`[Gemini] ${res.status}: ${body}`);
-        return fallback(data);
-      }
-
-      const payload = (await res.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      };
+      if (!res.ok) { console.error(`[Gemini] ${res.status}: ${await res.text()}`); return fallback(data); }
+      const payload = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
       const text = payload.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
       if (!text) return fallback(data);
-
       const parsed = extractJson(text) as Partial<GeminiRecommendation>;
+      const fb = fallback(data);
       return {
-        headline: parsed.headline || fallback(data).headline,
-        formulation: parsed.formulation || fallback(data).formulation,
-        dailyProtocol: parsed.dailyProtocol || fallback(data).dailyProtocol,
-        marketVerdict: parsed.marketVerdict || fallback(data).marketVerdict,
+        headline: parsed.headline || fb.headline,
+        dailyProtocol: parsed.dailyProtocol || fb.dailyProtocol,
+        marketVerdict: parsed.marketVerdict || fb.marketVerdict,
+        topMatch: (parsed.topMatch && parsed.topMatch.brand) ? parsed.topMatch : fb.topMatch,
+        budgetMatch: (parsed.budgetMatch && parsed.budgetMatch.brand) ? parsed.budgetMatch : fb.budgetMatch,
         source: "gemini",
       };
     } catch (err) {
