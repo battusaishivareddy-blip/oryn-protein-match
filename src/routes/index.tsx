@@ -594,9 +594,11 @@ function Processing() {
 
 /* -------------------------------- Results -------------------------------- */
 
-function Results({ profile, bmi, proteinNeed, matches, survey, onContinue }: {
+function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey, onContinue }: {
   profile: Profile; bmi: number; proteinNeed: number;
   matches: NonNullable<ReturnType<typeof findMatches>>;
+  aiRec: GeminiRecommendation | null;
+  aiLoading: boolean;
   survey: {
     surveyBrand: string; setSurveyBrand: (v: string) => void;
     frustration: string; setFrustration: (v: string) => void;
@@ -622,6 +624,44 @@ function Results({ profile, bmi, proteinNeed, matches, survey, onContinue }: {
         Based on your weight of {profile.weightKg}kg, your {profile.activity} activity load and a {profile.objective.replace("-", " ")} objective,
         your metabolism needs roughly {proteinNeed}g of protein daily — distributed across 2–3 doses for optimal amino acid saturation.
       </p>
+
+      {/* Gemini AI recommendation */}
+      <div className="mt-12 rounded-md border border-line bg-cream-deep/40 p-8 md:p-10">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <p className="oryn-chip">AI Architect · Live Recommendation</p>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-ink-muted">
+            {aiLoading ? "Composing..." : aiRec?.source === "gemini" ? "Generated for your profile" : "Prepared for your profile"}
+          </span>
+        </div>
+        {aiLoading && !aiRec ? (
+          <div className="mt-6 space-y-3">
+            <div className="h-4 w-3/4 bg-line/70 animate-pulse rounded" />
+            <div className="h-3 w-full bg-line/60 animate-pulse rounded" />
+            <div className="h-3 w-5/6 bg-line/60 animate-pulse rounded" />
+            <div className="h-3 w-2/3 bg-line/60 animate-pulse rounded" />
+          </div>
+        ) : aiRec ? (
+          <div className="mt-6 space-y-6">
+            <h3 className="serif text-2xl md:text-3xl text-ink leading-snug">{aiRec.headline}</h3>
+            <div className="grid md:grid-cols-3 gap-6 text-sm leading-relaxed text-ink-soft">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Custom Formulation</p>
+                <p className="mt-2">{aiRec.formulation}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Daily Protocol</p>
+                <p className="mt-2">{aiRec.dailyProtocol}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Market Verdict</p>
+                <p className="mt-2">{aiRec.marketVerdict}</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+
 
       {/* Match cards */}
       <div className="mt-14 grid md:grid-cols-3 gap-6">
