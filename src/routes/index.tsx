@@ -126,6 +126,30 @@ function Home() {
 
   useEffect(() => {
     if (step !== "processing") return;
+    let cancelled = false;
+
+    // Kick off Gemini recommendation in parallel with the analysis animation.
+    if (profile && matches) {
+      setAiLoading(true);
+      setAiRec(null);
+      const summarize = (m: typeof matches.top) =>
+        m ? {
+          brand: m.product.brand, base: m.product.base,
+          proteinPerServing: m.product.proteinPerServing,
+          pricePerKg: m.product.pricePerKg, sweetener: m.product.sweetener,
+          score: m.score,
+        } : null;
+      getGeminiRecommendation({
+        data: {
+          profile, bmi, proteinNeed,
+          top: summarize(matches.top), budget: summarize(matches.budget),
+        },
+      })
+        .then((rec) => { if (!cancelled) setAiRec(rec); })
+        .catch((err) => { console.error(err); })
+        .finally(() => { if (!cancelled) setAiLoading(false); });
+    }
+
     const t = setTimeout(async () => {
       if (matches && sessionId) {
         await supabase.from("oryn_sessions").update({
@@ -133,10 +157,10 @@ function Home() {
           matched_budget_brand: matches.budget?.product.brand ?? null,
         }).eq("id", sessionId);
       }
-      setStep("results");
+      if (!cancelled) setStep("results");
     }, 5200);
-    return () => clearTimeout(t);
-  }, [step, matches, sessionId]);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [step, matches, sessionId, profile, bmi, proteinNeed]);
 
   async function submitWaitlist() {
     if (!profile || !matches) return;
