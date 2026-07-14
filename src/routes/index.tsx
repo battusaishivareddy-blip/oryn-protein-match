@@ -58,6 +58,10 @@ function Home() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
+  // AI recommendation (server-side Gemini)
+  const [aiRec, setAiRec] = useState<GeminiRecommendation | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
   // Log visit once
   useEffect(() => {
     const key = crypto.randomUUID();
