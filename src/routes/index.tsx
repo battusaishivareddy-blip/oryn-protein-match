@@ -326,6 +326,7 @@ function Home() {
         {step === "processing" && <Processing key="proc" />}
         {step === "results" && profile && matches && (
           <Results key="results" profile={profile} bmi={bmi} proteinNeed={proteinNeed} matches={matches}
+            aiRec={aiRec} aiLoading={aiLoading}
             survey={{ surveyBrand, setSurveyBrand, frustration, setFrustration, sachet, setSachet }}
             onContinue={() => setStep("waitlist")} />
         )}
