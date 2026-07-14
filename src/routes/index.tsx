@@ -373,7 +373,7 @@ function Landing({ onStart }: { onStart: () => void }) {
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 <p className="text-[10px] uppercase tracking-[0.3em] text-ink-muted">Metric</p>
-                <p className="serif text-4xl text-ink mt-1">15 Brands</p>
+                <p className="serif text-4xl text-ink mt-1">Top 20 Brands</p>
                 <p className="text-xs text-ink-muted mt-1">cross-referenced</p>
               </div>
             </div>
