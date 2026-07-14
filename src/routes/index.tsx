@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { OrynHeader, OrynFooter, OrynBotanical, ScreenFrame } from "@/components/oryn/Shell";
 import { getGeminiRecommendation, type GeminiRecommendation } from "@/lib/gemini.functions";
 import {
-  computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS,
-  FLAVOR_LABELS, type FlavorKey, type Profile,
+  computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS, CALIBRATION_BRANDS,
+  FLAVOR_LABELS, type FlavorKey, type Profile, type Product,
 } from "@/lib/oryn-data";
 
 export const Route = createFileRoute("/")({
