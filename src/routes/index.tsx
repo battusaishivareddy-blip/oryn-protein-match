@@ -796,17 +796,18 @@ function Metric({ label, value, sub }: { label: string; value: string; sub: stri
   );
 }
 
-function MatchCard({ badge, ideal, title, brand, reason, detail, detailVal }: {
-  badge: string; ideal?: boolean; title: string; brand: string; reason: string;
+function MatchCard({ badge, ideal, title, brand, productName, reason, detail, detailVal }: {
+  badge: string; ideal?: boolean; title: string; brand: string; productName?: string; reason: string;
   detail: string[]; detailVal: string[];
 }) {
   return (
     <div className={`rounded-md border p-6 flex flex-col ${ideal ? "border-accent bg-accent/5" : "border-line bg-card"}`}>
       <div className="flex items-start justify-between">
         <p className="text-[10px] uppercase tracking-[0.22em] text-ink-muted">{title}</p>
-        <span className="serif text-2xl text-accent">{badge}</span>
+        <span className="serif text-lg text-accent">{badge}</span>
       </div>
       <h4 className="serif text-2xl text-ink mt-4 leading-tight">{brand}</h4>
+      {productName && <p className="text-xs text-ink-muted mt-1">{productName}</p>}
       <p className="text-sm text-ink-soft mt-3 leading-relaxed">{reason}</p>
       <dl className="mt-5 pt-5 border-t border-line/70 grid grid-cols-2 gap-3 text-xs">
         {detail.map((d, i) => (
