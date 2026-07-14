@@ -1,11 +1,44 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
+export function OrynLeaf({ className = "h-6 w-6" }: { className?: string }) {
+  // Filled teardrop leaf with center vein — matches the Oryn brand mark.
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
+      <path
+        d="M16 2 C 24 8, 27 16, 22 24 C 19.5 28, 17 29.5, 16 30 C 15 29.5, 12.5 28, 10 24 C 5 16, 8 8, 16 2 Z"
+        fill="currentColor"
+      />
+      <path
+        d="M16 6 L 16 28"
+        stroke="var(--color-cream, #f5efe4)"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.65"
+      />
+    </svg>
+  );
+}
+
+export function OrynWordmark({ size = "text-2xl" }: { size?: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <OrynLeaf className="h-6 w-6 text-ink" />
+      <span className={`serif ${size} tracking-tight text-ink`}>
+        Oryn<span className="text-accent">.</span>
+      </span>
+    </span>
+  );
+}
+
 export function OrynHeader() {
   return (
     <header className="border-b border-line bg-cream/80 backdrop-blur sticky top-0 z-40">
       <div className="mx-auto max-w-6xl px-6 py-5 flex items-center justify-between">
-        <Link to="/" className="serif text-2xl tracking-tight text-ink">Oryn<span className="text-accent">.</span></Link>
+        <Link to="/" className="flex items-center">
+          <OrynWordmark />
+        </Link>
         <div className="flex items-center gap-6 text-xs uppercase tracking-[0.18em] text-ink-muted">
           <span className="hidden sm:inline">AI-Engineered</span>
           <span className="hidden md:inline">Made for India</span>
@@ -20,7 +53,7 @@ export function OrynFooter() {
   return (
     <footer className="border-t border-line mt-24">
       <div className="mx-auto max-w-6xl px-6 py-10 flex flex-col md:flex-row justify-between gap-4 text-xs uppercase tracking-[0.18em] text-ink-muted">
-        <span className="serif text-lg normal-case tracking-tight text-ink">Oryn<span className="text-accent">.</span></span>
+        <OrynWordmark size="text-lg" />
         <span>Protein, Reimagined · India · {new Date().getFullYear()}</span>
       </div>
     </footer>
@@ -53,7 +86,7 @@ export function ScreenFrame({ children, progress }: { children: ReactNode; progr
             />
           </div>
           <div className="mx-auto max-w-6xl px-6 py-3 flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-ink-muted">
-            <span className="serif text-base normal-case tracking-tight text-ink">Oryn<span className="text-accent">.</span></span>
+            <OrynWordmark size="text-base" />
             <span>{progress.label ?? `Metric ${progress.current} of ${progress.total}`}</span>
           </div>
         </div>

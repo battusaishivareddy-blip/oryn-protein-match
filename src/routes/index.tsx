@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "@/integrations/supabase/client";
 import { OrynHeader, OrynFooter, OrynBotanical, ScreenFrame } from "@/components/oryn/Shell";
+import { getGeminiRecommendation, type GeminiRecommendation } from "@/lib/gemini.functions";
 import {
   computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS,
   FLAVOR_LABELS, type FlavorKey, type Profile,
@@ -56,6 +57,10 @@ function Home() {
   // Waitlist
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+
+  // AI recommendation (server-side Gemini)
+  const [aiRec, setAiRec] = useState<GeminiRecommendation | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   // Log visit once
   useEffect(() => {
@@ -121,6 +126,30 @@ function Home() {
 
   useEffect(() => {
     if (step !== "processing") return;
+    let cancelled = false;
+
+    // Kick off Gemini recommendation in parallel with the analysis animation.
+    if (profile && matches) {
+      setAiLoading(true);
+      setAiRec(null);
+      const summarize = (m: typeof matches.top) =>
+        m ? {
+          brand: m.product.brand, base: m.product.base,
+          proteinPerServing: m.product.proteinPerServing,
+          pricePerKg: m.product.pricePerKg, sweetener: m.product.sweetener,
+          score: m.score,
+        } : null;
+      getGeminiRecommendation({
+        data: {
+          profile, bmi, proteinNeed,
+          top: summarize(matches.top), budget: summarize(matches.budget),
+        },
+      })
+        .then((rec) => { if (!cancelled) setAiRec(rec); })
+        .catch((err) => { console.error(err); })
+        .finally(() => { if (!cancelled) setAiLoading(false); });
+    }
+
     const t = setTimeout(async () => {
       if (matches && sessionId) {
         await supabase.from("oryn_sessions").update({
@@ -128,10 +157,10 @@ function Home() {
           matched_budget_brand: matches.budget?.product.brand ?? null,
         }).eq("id", sessionId);
       }
-      setStep("results");
+      if (!cancelled) setStep("results");
     }, 5200);
-    return () => clearTimeout(t);
-  }, [step, matches, sessionId]);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [step, matches, sessionId, profile, bmi, proteinNeed]);
 
   async function submitWaitlist() {
     if (!profile || !matches) return;
@@ -297,6 +326,7 @@ function Home() {
         {step === "processing" && <Processing key="proc" />}
         {step === "results" && profile && matches && (
           <Results key="results" profile={profile} bmi={bmi} proteinNeed={proteinNeed} matches={matches}
+            aiRec={aiRec} aiLoading={aiLoading}
             survey={{ surveyBrand, setSurveyBrand, frustration, setFrustration, sachet, setSachet }}
             onContinue={() => setStep("waitlist")} />
         )}
@@ -564,9 +594,11 @@ function Processing() {
 
 /* -------------------------------- Results -------------------------------- */
 
-function Results({ profile, bmi, proteinNeed, matches, survey, onContinue }: {
+function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey, onContinue }: {
   profile: Profile; bmi: number; proteinNeed: number;
   matches: NonNullable<ReturnType<typeof findMatches>>;
+  aiRec: GeminiRecommendation | null;
+  aiLoading: boolean;
   survey: {
     surveyBrand: string; setSurveyBrand: (v: string) => void;
     frustration: string; setFrustration: (v: string) => void;
@@ -592,6 +624,44 @@ function Results({ profile, bmi, proteinNeed, matches, survey, onContinue }: {
         Based on your weight of {profile.weightKg}kg, your {profile.activity} activity load and a {profile.objective.replace("-", " ")} objective,
         your metabolism needs roughly {proteinNeed}g of protein daily — distributed across 2–3 doses for optimal amino acid saturation.
       </p>
+
+      {/* Gemini AI recommendation */}
+      <div className="mt-12 rounded-md border border-line bg-cream-deep/40 p-8 md:p-10">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <p className="oryn-chip">AI Architect · Live Recommendation</p>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-ink-muted">
+            {aiLoading ? "Composing..." : aiRec?.source === "gemini" ? "Generated for your profile" : "Prepared for your profile"}
+          </span>
+        </div>
+        {aiLoading && !aiRec ? (
+          <div className="mt-6 space-y-3">
+            <div className="h-4 w-3/4 bg-line/70 animate-pulse rounded" />
+            <div className="h-3 w-full bg-line/60 animate-pulse rounded" />
+            <div className="h-3 w-5/6 bg-line/60 animate-pulse rounded" />
+            <div className="h-3 w-2/3 bg-line/60 animate-pulse rounded" />
+          </div>
+        ) : aiRec ? (
+          <div className="mt-6 space-y-6">
+            <h3 className="serif text-2xl md:text-3xl text-ink leading-snug">{aiRec.headline}</h3>
+            <div className="grid md:grid-cols-3 gap-6 text-sm leading-relaxed text-ink-soft">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Custom Formulation</p>
+                <p className="mt-2">{aiRec.formulation}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Daily Protocol</p>
+                <p className="mt-2">{aiRec.dailyProtocol}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Market Verdict</p>
+                <p className="mt-2">{aiRec.marketVerdict}</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+
 
       {/* Match cards */}
       <div className="mt-14 grid md:grid-cols-3 gap-6">
