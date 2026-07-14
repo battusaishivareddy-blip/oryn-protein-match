@@ -86,7 +86,7 @@ export function ScreenFrame({ children, progress }: { children: ReactNode; progr
             />
           </div>
           <div className="mx-auto max-w-6xl px-6 py-3 flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-ink-muted">
-            <span className="serif text-base normal-case tracking-tight text-ink">Oryn<span className="text-accent">.</span></span>
+            <OrynWordmark size="text-base" />
             <span>{progress.label ?? `Metric ${progress.current} of ${progress.total}`}</span>
           </div>
         </div>
