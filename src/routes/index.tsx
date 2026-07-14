@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "@/integrations/supabase/client";
 import { OrynHeader, OrynFooter, OrynBotanical, ScreenFrame } from "@/components/oryn/Shell";
+import { getGeminiRecommendation, type GeminiRecommendation } from "@/lib/gemini.functions";
 import {
   computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS,
   FLAVOR_LABELS, type FlavorKey, type Profile,
