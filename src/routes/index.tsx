@@ -761,7 +761,7 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
         <div className="mt-8 space-y-8">
           <SurveyBlock label="F1 — Which protein are you currently on?">
             <SurveyPills value={survey.surveyBrand} onChange={survey.setSurveyBrand}
-              options={[...PRODUCTS.map((p) => p.brand), "None / on Whey"]} />
+              options={CALIBRATION_BRANDS} />
           </SurveyBlock>
           <SurveyBlock label="F2 — What's your primary frustration today?">
             <SurveyPills value={survey.frustration} onChange={survey.setFrustration} options={[
