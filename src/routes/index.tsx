@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { OrynHeader, OrynFooter, OrynBotanical, ScreenFrame } from "@/components/oryn/Shell";
 import { getGeminiRecommendation, type GeminiRecommendation } from "@/lib/gemini.functions";
 import {
-  computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS,
-  FLAVOR_LABELS, type FlavorKey, type Profile,
+  computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS, CALIBRATION_BRANDS,
+  FLAVOR_LABELS, type FlavorKey, type Profile, type Product,
 } from "@/lib/oryn-data";
 
 export const Route = createFileRoute("/")({
@@ -128,21 +128,19 @@ function Home() {
     if (step !== "processing") return;
     let cancelled = false;
 
-    // Kick off Gemini recommendation in parallel with the analysis animation.
-    if (profile && matches) {
+    if (profile) {
       setAiLoading(true);
       setAiRec(null);
-      const summarize = (m: typeof matches.top) =>
-        m ? {
-          brand: m.product.brand, base: m.product.base,
-          proteinPerServing: m.product.proteinPerServing,
-          pricePerKg: m.product.pricePerKg, sweetener: m.product.sweetener,
-          score: m.score,
-        } : null;
       getGeminiRecommendation({
         data: {
-          profile, bmi, proteinNeed,
-          top: summarize(matches.top), budget: summarize(matches.budget),
+          profile: {
+            name: profile.name, age: profile.age, sex: profile.sex,
+            heightCm: profile.heightCm, weightKg: profile.weightKg,
+            objective: profile.objective, activity: profile.activity, diet: profile.diet,
+            gut: profile.gut, sweetener: profile.sweetener, budget: profile.budget,
+            allergens: profile.allergens, flavors: profile.flavors, habit: profile.habit,
+          },
+          bmi, proteinNeed,
         },
       })
         .then((rec) => { if (!cancelled) setAiRec(rec); })
@@ -375,7 +373,7 @@ function Landing({ onStart }: { onStart: () => void }) {
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 <p className="text-[10px] uppercase tracking-[0.3em] text-ink-muted">Metric</p>
-                <p className="serif text-4xl text-ink mt-1">15 Brands</p>
+                <p className="serif text-4xl text-ink mt-1">Top 20 Brands</p>
                 <p className="text-xs text-ink-muted mt-1">cross-referenced</p>
               </div>
             </div>
@@ -606,8 +604,23 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
   };
   onContinue: () => void;
 }) {
-  const top = matches.top;
-  const budget = matches.budget;
+  // Resolve Gemini's brand picks against the live catalogue. Fall back to
+  // the local scorer if Gemini didn't return a usable pick.
+  const resolveByPick = (pick: { brand: string; productName?: string } | null | undefined): Product | null => {
+    if (!pick) return null;
+    const list = PRODUCTS.filter((p) => p.brand.toLowerCase() === pick.brand.toLowerCase());
+    if (!list.length) return null;
+    if (pick.productName) {
+      const exact = list.find((p) => p.productName.toLowerCase() === pick.productName!.toLowerCase());
+      if (exact) return exact;
+    }
+    return list[0];
+  };
+  const topProduct   = resolveByPick(aiRec?.topMatch)    ?? matches.top?.product    ?? null;
+  const budgetProduct = resolveByPick(aiRec?.budgetMatch) ?? matches.budget?.product ?? null;
+  const topWhy    = aiRec?.topMatch?.why    ?? matches.top?.reasons.slice(0, 2).join(". ")    ?? "";
+  const budgetWhy = aiRec?.budgetMatch?.why ?? matches.budget?.reasons.slice(0, 2).join(". ") ?? "";
+
   return (
     <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
       className="mx-auto max-w-6xl px-6 pt-24 pb-16">
@@ -615,22 +628,21 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
       <h2 className="serif text-4xl md:text-6xl text-ink leading-[1.05]">
         Hey {profile.name.split(" ")[0]}, your physical architecture analysis is complete.
       </h2>
-      <div className="mt-8 grid md:grid-cols-3 gap-6">
+      <div className="mt-8 grid md:grid-cols-2 gap-6">
         <Metric label="BMI" value={String(bmi)} sub={bmiClass(bmi)} />
         <Metric label="Daily Protein Target" value={`${proteinNeed}g`} sub="calibrated to activity + objective" />
-        <Metric label="Base Recommendation" value="Rotating Sachet Base" sub="8 flavors · 1 clean base" />
       </div>
       <p className="mt-8 text-sm text-ink-soft max-w-3xl">
         Based on your weight of {profile.weightKg}kg, your {profile.activity} activity load and a {profile.objective.replace("-", " ")} objective,
         your metabolism needs roughly {proteinNeed}g of protein daily — distributed across 2–3 doses for optimal amino acid saturation.
       </p>
 
-      {/* Gemini AI recommendation */}
+      {/* Gemini AI recommendation — Daily Protocol + Market Verdict only */}
       <div className="mt-12 rounded-md border border-line bg-cream-deep/40 p-8 md:p-10">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <p className="oryn-chip">AI Architect · Live Recommendation</p>
+          <p className="oryn-chip">Live Recommendation · Indian Market · July 2026</p>
           <span className="text-[10px] uppercase tracking-[0.22em] text-ink-muted">
-            {aiLoading ? "Composing..." : aiRec?.source === "gemini" ? "Generated for your profile" : "Prepared for your profile"}
+            {aiLoading ? "Composing…" : aiRec?.source === "gemini" ? "Generated for your profile" : "Prepared for your profile"}
           </span>
         </div>
         {aiLoading && !aiRec ? (
@@ -643,11 +655,7 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
         ) : aiRec ? (
           <div className="mt-6 space-y-6">
             <h3 className="serif text-2xl md:text-3xl text-ink leading-snug">{aiRec.headline}</h3>
-            <div className="grid md:grid-cols-3 gap-6 text-sm leading-relaxed text-ink-soft">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Custom Formulation</p>
-                <p className="mt-2">{aiRec.formulation}</p>
-              </div>
+            <div className="grid md:grid-cols-2 gap-6 text-sm leading-relaxed text-ink-soft">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Daily Protocol</p>
                 <p className="mt-2">{aiRec.dailyProtocol}</p>
@@ -661,64 +669,53 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
         ) : null}
       </div>
 
-
-
-      {/* Match cards */}
-      <div className="mt-14 grid md:grid-cols-3 gap-6">
-        <MatchCard
-          badge="100%" ideal
-          title="Your Custom Oryn Formula"
-          brand="Bespoke Base + 8 Sachets"
-          reason={`Engineered exactly for ${profile.diet} · ${profile.gut} gut · ${profile.sweetener} sweetener. Zero fillers, rotating flavor system.`}
-          detail={["Base", "Protein / serving", "Sweetener", "Flavor System"]}
-          detailVal={[
-            profile.diet === "vegan" ? "Pea + Rice + Mung" : "Pea + Rice",
-            `~${Math.round(proteinNeed / 3)}g targeted`,
-            profile.sweetener === "raw" ? "None" : profile.sweetener === "monk" ? "Monk Fruit" : "Organic Stevia",
-            "8 rotating clean sachets",
-          ]}
-        />
-        {top && (
+      {/* Match cards — Top Market Match + Smart Budget Alternative only */}
+      <div className="mt-14 grid md:grid-cols-2 gap-6">
+        {topProduct && (
           <MatchCard
-            badge={`${top.score}%`}
+            badge="Top Match"
+            ideal
             title="Top Market Match"
-            brand={top.product.brand}
-            reason={top.reasons.slice(0, 2).join(". ") + "."}
+            brand={topProduct.brand}
+            productName={topProduct.productName}
+            reason={topWhy}
             detail={["Base", "Protein / serving", "Cost / kg", "Sweetener"]}
-            detailVal={[top.product.base, top.product.proteinPerServing, `₹${top.product.pricePerKg.toLocaleString("en-IN")}`, top.product.sweetener]}
+            detailVal={[topProduct.base, topProduct.proteinPerServing, `₹${topProduct.pricePerKg.toLocaleString("en-IN")}`, topProduct.sweetener]}
           />
         )}
-        {budget && (
+        {budgetProduct && (
           <MatchCard
-            badge={`${budget.score}%`}
+            badge="Smart Budget"
             title="Smart Budget Alternative"
-            brand={budget.product.brand}
-            reason={budget.reasons.slice(0, 2).join(". ") + "."}
+            brand={budgetProduct.brand}
+            productName={budgetProduct.productName}
+            reason={budgetWhy}
             detail={["Base", "Protein / serving", "Cost / kg", "Sweetener"]}
-            detailVal={[budget.product.base, budget.product.proteinPerServing, `₹${budget.product.pricePerKg.toLocaleString("en-IN")}`, budget.product.sweetener]}
+            detailVal={[budgetProduct.base, budgetProduct.proteinPerServing, `₹${budgetProduct.pricePerKg.toLocaleString("en-IN")}`, budgetProduct.sweetener]}
           />
         )}
       </div>
 
-      {/* Strategic Pivot */}
+      {/* Gainful-style pivot — introduced AFTER the honest market recommendation */}
       <div className="mt-16 rounded-md border border-ink bg-ink text-cream p-8 md:p-12">
-        <p className="text-[10px] uppercase tracking-[0.24em] text-accent">The Oryn Method</p>
-        <h3 className="serif text-3xl md:text-4xl mt-4 leading-tight">The market reality: even your closest match asks for compromise.</h3>
+        <p className="text-[10px] uppercase tracking-[0.24em] text-accent">The Market Reality</p>
+        <h3 className="serif text-3xl md:text-4xl mt-4 leading-tight">
+          Even your top match ships a single locked-in flavor.
+        </h3>
         <div className="mt-6 grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-cream/85">
           <p>
-            The plant protein industry in India is built on uniform parameters. Brands manufacture massive
-            single-flavor 1kg tubs, forcing your body to accommodate their fixed ingredient profiles — and
-            leaving you completely bored of the taste by week two.
+            Every product on Indian shelves — Cosmix, Origin, MuscleBlaze, Nakpro — is a fixed 1kg tub with
+            one flavor. You buy chocolate on Monday and you're still drinking chocolate on Friday of week 12.
+            That's flavor fatigue, and it's the single biggest reason people quit plant protein.
           </p>
           <p>
-            Oryn reimagines this. Our ecosystem uncouples your baseline nutrition from your flavor system.
-            You receive a 100% customized unflavored base — balanced for your architecture, conditions, and
-            gut profile — alongside 8 clean flavor sachets rotating from Dark Chocolate and Coffee Mocha to
-            Alphonso Mango and Kulfi.
+            The Gainful playbook (USA) proved a cleaner path — one clean unflavored base + rotating flavor
+            packets = endless variety, zero fatigue, one custom formula. Oryn is building that architecture
+            for Indian bodies, Indian gut profiles, and Indian palates.
           </p>
         </div>
         <div className="mt-8 grid md:grid-cols-4 gap-3">
-          {["Tear open a sachet", "Mix into your custom base", "Choose your flavor daily", "Never repeat a week"].map((s, i) => (
+          {["Tear open a flavor packet", "Mix into your clean base", "Rotate daily across 8 flavors", "Never repeat a week"].map((s, i) => (
             <div key={s} className="rounded-md border border-cream/20 p-4">
               <p className="serif text-2xl text-accent-soft">0{i + 1}</p>
               <p className="text-sm mt-2 text-cream">{s}</p>
@@ -727,42 +724,29 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
         </div>
       </div>
 
-      {/* Comparison table */}
+      {/* Comparison table — real market products only, no Oryn row */}
       <div className="mt-16">
-        <p className="oryn-chip mb-4">Cross-Reference Matrix</p>
+        <p className="oryn-chip mb-4">Cross-Reference Matrix · Indian Market</p>
         <h3 className="serif text-3xl text-ink">Product Comparison</h3>
         <div className="mt-6 overflow-x-auto border border-line rounded-md">
           <table className="w-full text-sm">
             <thead className="bg-cream-deep/60 text-[10px] uppercase tracking-[0.16em] text-ink-muted">
               <tr>
-                {["Brand", "Base", "Protein / Serving", "Cost / kg", "Added Sugars", "Sweetener", "Gut-Friendly", "Flavors", "Validation"].map((h) => (
+                {["Brand", "Base", "Protein / Serving", "Cost / kg", "Sweetener", "Gut-Friendly", "Flavors"].map((h) => (
                   <th key={h} className="text-left px-4 py-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              <tr className="bg-accent/5 border-t border-line">
-                <td className="px-4 py-3 serif text-ink"><span className="text-accent">◆</span> Your Oryn Formula</td>
-                <td className="px-4 py-3">{profile.diet === "vegan" ? "Pea + Rice + Mung" : "Pea + Rice"}</td>
-                <td className="px-4 py-3">~{Math.round(proteinNeed / 3)}g targeted</td>
-                <td className="px-4 py-3">Cohort-priced</td>
-                <td className="px-4 py-3">None</td>
-                <td className="px-4 py-3">{profile.sweetener === "raw" ? "None" : profile.sweetener === "monk" ? "Monk Fruit" : "Organic Stevia"}</td>
-                <td className="px-4 py-3">Engineered</td>
-                <td className="px-4 py-3">8 rotating sachets</td>
-                <td className="px-4 py-3">Third-party validated</td>
-              </tr>
-              {[top, budget].filter(Boolean).map((m) => (
-                <tr key={m!.product.brand} className="border-t border-line">
-                  <td className="px-4 py-3 serif text-ink">{m!.product.brand}</td>
-                  <td className="px-4 py-3">{m!.product.base}</td>
-                  <td className="px-4 py-3">{m!.product.proteinPerServing}</td>
-                  <td className="px-4 py-3">₹{m!.product.pricePerKg.toLocaleString("en-IN")}</td>
-                  <td className="px-4 py-3">{m!.product.sugars}</td>
-                  <td className="px-4 py-3">{m!.product.sweetener}</td>
-                  <td className="px-4 py-3">{m!.product.gutFriendly ? "Yes" : "No"}</td>
-                  <td className="px-4 py-3">{m!.product.flavors.join(", ")}</td>
-                  <td className="px-4 py-3">{m!.product.thirdParty}</td>
+              {[topProduct, budgetProduct].filter(Boolean).map((p, idx) => (
+                <tr key={p!.brand + idx} className={idx === 0 ? "bg-accent/5 border-t border-line" : "border-t border-line"}>
+                  <td className="px-4 py-3 serif text-ink">{p!.brand} <span className="text-ink-muted text-xs">· {p!.productName}</span></td>
+                  <td className="px-4 py-3">{p!.base}</td>
+                  <td className="px-4 py-3">{p!.proteinPerServing}</td>
+                  <td className="px-4 py-3">₹{p!.pricePerKg.toLocaleString("en-IN")}</td>
+                  <td className="px-4 py-3">{p!.sweetener}</td>
+                  <td className="px-4 py-3">{p!.gutFriendly ? "Yes" : "No"}</td>
+                  <td className="px-4 py-3">{p!.flavors.slice(0, 3).join(", ")}</td>
                 </tr>
               ))}
             </tbody>
@@ -777,7 +761,7 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
         <div className="mt-8 space-y-8">
           <SurveyBlock label="F1 — Which protein are you currently on?">
             <SurveyPills value={survey.surveyBrand} onChange={survey.setSurveyBrand}
-              options={[...PRODUCTS.map((p) => p.brand), "None / on Whey"]} />
+              options={CALIBRATION_BRANDS} />
           </SurveyBlock>
           <SurveyBlock label="F2 — What's your primary frustration today?">
             <SurveyPills value={survey.frustration} onChange={survey.setFrustration} options={[
@@ -812,17 +796,18 @@ function Metric({ label, value, sub }: { label: string; value: string; sub: stri
   );
 }
 
-function MatchCard({ badge, ideal, title, brand, reason, detail, detailVal }: {
-  badge: string; ideal?: boolean; title: string; brand: string; reason: string;
+function MatchCard({ badge, ideal, title, brand, productName, reason, detail, detailVal }: {
+  badge: string; ideal?: boolean; title: string; brand: string; productName?: string; reason: string;
   detail: string[]; detailVal: string[];
 }) {
   return (
     <div className={`rounded-md border p-6 flex flex-col ${ideal ? "border-accent bg-accent/5" : "border-line bg-card"}`}>
       <div className="flex items-start justify-between">
         <p className="text-[10px] uppercase tracking-[0.22em] text-ink-muted">{title}</p>
-        <span className="serif text-2xl text-accent">{badge}</span>
+        <span className="serif text-lg text-accent">{badge}</span>
       </div>
       <h4 className="serif text-2xl text-ink mt-4 leading-tight">{brand}</h4>
+      {productName && <p className="text-xs text-ink-muted mt-1">{productName}</p>}
       <p className="text-sm text-ink-soft mt-3 leading-relaxed">{reason}</p>
       <dl className="mt-5 pt-5 border-t border-line/70 grid grid-cols-2 gap-3 text-xs">
         {detail.map((d, i) => (
