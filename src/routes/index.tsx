@@ -6,7 +6,7 @@ import { OrynHeader, OrynFooter, OrynBotanical, ScreenFrame } from "@/components
 import { getGeminiRecommendation, type GeminiRecommendation } from "@/lib/gemini.functions";
 import {
   computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS, CALIBRATION_BRANDS,
-  FLAVOR_LABELS, type FlavorKey, type Profile, type Product,
+  FLAVOR_LABELS, describeDifference, type FlavorKey, type Profile, type Product, type MatchResult,
 } from "@/lib/oryn-data";
 
 export const Route = createFileRoute("/")({
@@ -32,7 +32,6 @@ function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const sessionKey = useRef<string>("");
 
-  // Profile state
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<Profile["sex"] | "">("");
@@ -46,23 +45,19 @@ function Home() {
   const [sweetener, setSweetener] = useState<Profile["sweetener"] | "">("");
   const [allergens, setAllergens] = useState<string[]>([]);
   const [budget, setBudget] = useState<Profile["budget"] | "">("");
-  const [flavors, setFlavors] = useState<FlavorKey[]>([]);
+  const [flavor, setFlavor] = useState<FlavorKey | "">("");
   const [habit, setHabit] = useState("");
 
-  // Survey
   const [surveyBrand, setSurveyBrand] = useState("");
   const [frustration, setFrustration] = useState("");
   const [sachet, setSachet] = useState("");
 
-  // Waitlist
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  // AI recommendation (server-side Gemini)
   const [aiRec, setAiRec] = useState<GeminiRecommendation | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Log visit once
   useEffect(() => {
     const key = crypto.randomUUID();
     sessionKey.current = key;
@@ -76,13 +71,13 @@ function Home() {
       objective: objective as Profile["objective"], activity: activity as Profile["activity"],
       diet: diet as Profile["diet"], health, gut: gut as Profile["gut"],
       sweetener: sweetener as Profile["sweetener"], allergens, budget: budget as Profile["budget"],
-      flavors, habit,
+      flavor, habit,
     };
-  }, [name, age, sex, heightCm, weightKg, objective, activity, diet, health, gut, sweetener, allergens, budget, flavors, habit]);
+  }, [name, age, sex, heightCm, weightKg, objective, activity, diet, health, gut, sweetener, allergens, budget, flavor, habit]);
 
   const bmi = useMemo(() => profile ? computeBMI(profile.heightCm, profile.weightKg) : 0, [profile]);
   const proteinNeed = useMemo(() => profile ? computeProteinNeed(profile) : 0, [profile]);
-  const matches = useMemo(() => profile ? findMatches(profile) : null, [profile]);
+  const matches: MatchResult | null = useMemo(() => profile ? findMatches(profile) : null, [profile]);
 
   async function persistSession(patch: Record<string, unknown>) {
     if (!sessionId) {
@@ -104,15 +99,12 @@ function Home() {
     else if (from === "q11") setStep("processing");
   }
 
-  function startQuiz() {
-    setStep("q1");
-  }
+  function startQuiz() { setStep("q1"); }
 
   async function finishQuiz() {
     if (!profile) return;
     setStep("processing");
     const responses = { ...profile };
-    // create/update session at end of quiz
     const { data } = await supabase.from("oryn_sessions").upsert({
       session_key: sessionKey.current,
       completed: false,
@@ -128,9 +120,12 @@ function Home() {
     if (step !== "processing") return;
     let cancelled = false;
 
-    if (profile) {
+    if (profile && matches) {
       setAiLoading(true);
       setAiRec(null);
+      const candidatePool = [matches.ideal, matches.close].filter(Boolean).map((m) => ({
+        brand: m!.product.brand, productName: m!.product.productName, score: m!.score, reasons: m!.reasons,
+      }));
       getGeminiRecommendation({
         data: {
           profile: {
@@ -138,21 +133,21 @@ function Home() {
             heightCm: profile.heightCm, weightKg: profile.weightKg,
             objective: profile.objective, activity: profile.activity, diet: profile.diet,
             gut: profile.gut, sweetener: profile.sweetener, budget: profile.budget,
-            allergens: profile.allergens, flavors: profile.flavors, habit: profile.habit,
+            allergens: profile.allergens, flavor: profile.flavor, habit: profile.habit,
           },
-          bmi, proteinNeed,
+          bmi, proteinNeed, candidatePool, relaxed: matches.relaxed,
         },
       })
         .then((rec) => { if (!cancelled) setAiRec(rec); })
-        .catch((err) => { console.error(err); })
+        .catch((err) => { console.error("[Oryn] Gemini call failed:", err); })
         .finally(() => { if (!cancelled) setAiLoading(false); });
     }
 
     const t = setTimeout(async () => {
       if (matches && sessionId) {
         await supabase.from("oryn_sessions").update({
-          matched_ideal_brand: matches.top?.product.brand ?? null,
-          matched_budget_brand: matches.budget?.product.brand ?? null,
+          matched_ideal_brand: matches.ideal?.product.brand ?? null,
+          matched_budget_brand: matches.close?.product.brand ?? null,
         }).eq("id", sessionId);
       }
       if (!cancelled) setStep("results");
@@ -165,10 +160,9 @@ function Home() {
     await supabase.from("oryn_waitlist").insert({
       session_id: sessionId,
       name: profile.name,
-      email,
-      phone,
-      matched_ideal_brand: matches.top?.product.brand ?? null,
-      matched_budget_brand: matches.budget?.product.brand ?? null,
+      email, phone,
+      matched_ideal_brand: matches.ideal?.product.brand ?? null,
+      matched_budget_brand: matches.close?.product.brand ?? null,
       bmi, protein_need: proteinNeed,
       survey_current_brand: surveyBrand || null,
       survey_frustration: frustration || null,
@@ -196,7 +190,8 @@ function Home() {
     <ScreenFrame progress={progress}>
       {step === "landing" && <Landing onStart={startQuiz} />}
       <AnimatePresence mode="wait">
-        {step === "q1" && <Q key="q1" title="Physical Architecture" why="We calculate your exact BMI and daily nitrogen requirements to establish a true baseline, bypassing generic scoop sizing."
+        {step === "q1" && <Q key="q1" title="Physical Architecture"
+          why="We use your exact BMI and physical metrics to establish a true daily macro baseline, bypassing generic, one-size-fits-all scoop sizing."
           onNext={() => { persistSession({ q1: { name, age, sex, heightCm, weightKg } }); next("q1"); }}
           canNext={!!(name && age && sex && heightCm && weightKg)}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -216,7 +211,7 @@ function Home() {
               <p className="serif text-xl text-ink mt-1">
                 BMI {computeBMI(+heightCm, +weightKg)} · {bmiClass(computeBMI(+heightCm, +weightKg))}
               </p>
-              <p className="text-xs text-ink-muted mt-2">General wellness guidance, not medical advice. Consult a doctor if managing clinical health conditions.</p>
+              <p className="text-xs text-ink-muted mt-2">General wellness guidance, not medical advice.</p>
             </div>
           )}
         </Q>}
@@ -231,7 +226,7 @@ function Home() {
           ]} />
         </Q>}
 
-        {step === "q3" && <Q key="q3" title="Activity & Metabolic Load" why="This updates your amino acid replenishment curve inside your chosen objective range."
+        {step === "q3" && <Q key="q3" title="Activity & Metabolic Load" why="This informs the daily dose your body needs — activity does not filter which brands you see."
           onNext={() => { persistSession({ q3: activity }); next("q3"); }} canNext={!!activity}>
           <Choice value={activity} onChange={(v) => setActivity(v as any)} options={[
             { v: "sedentary", l: "Sedentary", d: "Minimal training strain" },
@@ -241,39 +236,35 @@ function Home() {
           ]} />
         </Q>}
 
-        {step === "q4" && <Q key="q4" title="Cultural & Dietary Framework" why="Determines which raw botanical bases and flavor lines align with your lifestyle criteria."
+        {step === "q4" && <Q key="q4" title="Dietary Framework" why="A hard filter — non-compliant bases are excluded from the pool entirely."
           onNext={() => { persistSession({ q4: diet }); next("q4"); }} canNext={!!diet}>
           <Choice value={diet} onChange={(v) => setDiet(v as any)} options={[
             { v: "vegan", l: "🌱 Vegan" },
             { v: "vegetarian", l: "🥛 Vegetarian" },
-            { v: "flexitarian", l: "🍗 Flexitarian" },
-            { v: "eggitarian", l: "🥚 Eggitarian" },
           ]} />
         </Q>}
 
-        {step === "q5" && <Q key="q5" title="Clinical Health & Lifestyle" why="Ensures your base isolates avoid compounding underlying physiological stressors."
+        {step === "q5" && <Q key="q5" title="Clinical Health & Lifestyle" why="Contextual signal for the AI — helps it flag ingredients that compound underlying stressors."
           onNext={() => { persistSession({ q5: health }); next("q5"); }} canNext={health.length > 0}>
           <Multi value={health} onChange={setHealth} options={[
             { v: "diabetes", l: "Diabetes / Insulin Resistance" },
             { v: "pcos", l: "PCOS Management" },
             { v: "acid", l: "Acid Reflux / High Acidity" },
             { v: "acne", l: "Acne-Prone Skin" },
-            { v: "cardio", l: "Cardiovascular Health Tracking" },
             { v: "none", l: "None of these apply" },
           ]} />
         </Q>}
 
-        {step === "q6" && <Q key="q6" title="Gut & Sensitivity Metrics" why="Plant bases ferment differently in the gut. Isolating this prevents post-shake discomfort."
+        {step === "q6" && <Q key="q6" title="Gut & Sensitivity Metrics" why="Plant bases ferment differently in the gut. This is a strong filter to prevent post-shake discomfort."
           onNext={() => { persistSession({ q6: gut }); next("q6"); }} canNext={!!gut}>
           <Choice value={gut} onChange={(v) => setGut(v as any)} options={[
-            { v: "pristine", l: "Pristine", d: "No digestion issues" },
+            { v: "pristine", l: "No issues", d: "Digestion is clean" },
             { v: "bloating", l: "Occasional Bloating or Gas" },
-            { v: "lactose", l: "Lactose Intolerance" },
-            { v: "ibs", l: "Highly Sensitive Stomach / IBS Archetype" },
+            { v: "ibs", l: "Sensitive Stomach / IBS Archetype" },
           ]} />
         </Q>}
 
-        {step === "q7" && <Q key="q7" title="Sweetener Matrix Preference" why="Sweeteners are the primary cause of chemical aftertaste and low long-term compliance."
+        {step === "q7" && <Q key="q7" title="Sweetener Matrix Preference" why="A strong filter — sweeteners drive both aftertaste and long-term compliance."
           onNext={() => { persistSession({ q7: sweetener }); next("q7"); }} canNext={!!sweetener}>
           <Choice value={sweetener} onChange={(v) => setSweetener(v as any)} options={[
             { v: "stevia", l: "Stevia Extract is fine" },
@@ -283,7 +274,7 @@ function Home() {
           ]} />
         </Q>}
 
-        {step === "q8" && <Q key="q8" title="Immuno-Allergen Filter" why="Safety compliance protocol — filters non-compatible processing facilities and ingredient chains."
+        {step === "q8" && <Q key="q8" title="Immuno-Allergen Filter" why="Absolute hard filter — allergen conflicts are always excluded, no exceptions."
           onNext={() => { persistSession({ q8: allergens }); next("q8"); }} canNext={allergens.length > 0}>
           <Multi value={allergens} onChange={setAllergens} options={[
             { v: "soy", l: "Soy Fractions" },
@@ -293,7 +284,7 @@ function Home() {
           ]} />
         </Q>}
 
-        {step === "q9" && <Q key="q9" title="Economic Budget Allocation" why="Allows the engine to map your closest market products alongside your personalized recommendation."
+        {step === "q9" && <Q key="q9" title="Economic Budget Allocation" why="Used only to break ties among candidates that already passed gut, sweetener and allergen checks."
           onNext={() => { persistSession({ q9: budget }); next("q9"); }} canNext={!!budget}>
           <Choice value={budget} onChange={(v) => setBudget(v as any)} options={[
             { v: "value", l: "Entry / Value Tier", d: "Under ₹1,500 per kg" },
@@ -303,15 +294,14 @@ function Home() {
           ]} />
         </Q>}
 
-        {step === "q10" && <Q key="q10" title="Flavor Vector Selection" why="We cross-reference your choices against real market availability to find clean configurations."
-          hint="Pick up to 3"
-          onNext={() => { persistSession({ q10: flavors }); next("q10"); }} canNext={flavors.length > 0}>
-          <Multi value={flavors as string[]} onChange={(v) => setFlavors(v.slice(0, 3) as FlavorKey[])} options={
+        {step === "q10" && <Q key="q10" title="Flavor Preference" why="Pick one — a tie-breaker, never overrides gut, sweetener or allergen filters."
+          onNext={() => { persistSession({ q10: flavor }); next("q10"); }} canNext={!!flavor}>
+          <Choice value={flavor} onChange={(v) => setFlavor(v as FlavorKey)} options={
             (Object.entries(FLAVOR_LABELS) as [FlavorKey, string][]).map(([v, l]) => ({ v, l }))
           } />
         </Q>}
 
-        {step === "q11" && <Q key="q11" title="Historical Supplement Habit" why="Benchmarks compliance to optimize your onboarding strategy."
+        {step === "q11" && <Q key="q11" title="Historical Supplement Habit" why="Benchmarks compliance to optimize onboarding — context only, not a filter."
           onNext={() => { persistSession({ q11: habit }); finishQuiz(); }} canNext={!!habit} nextLabel="Run Analysis">
           <Choice value={habit} onChange={setHabit} options={[
             { v: "plant", l: "Currently on a plant protein blend" },
@@ -356,8 +346,7 @@ function Landing({ onStart }: { onStart: () => void }) {
             </h1>
             <p className="mt-8 max-w-xl text-lg text-ink-soft leading-relaxed">
               Oryn instantly analyzes your physical architecture against every prominent plant protein
-              product in the Indian market — then unlocks a completely custom-engineered formulation
-              strategy built for your body.
+              product in the Indian market — then recommends the closest fit for your body.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-start gap-4">
               <button onClick={onStart} className="oryn-btn oryn-btn-accent text-base px-8 py-4">
@@ -386,48 +375,6 @@ function Landing({ onStart }: { onStart: () => void }) {
           <p className="serif text-2xl md:text-3xl text-ink max-w-3xl leading-snug">
             "Made in India. Made for India. Cross-referenced against the entire Indian market."
           </p>
-          <div className="mt-12 grid md:grid-cols-3 gap-6">
-            {[
-              { k: "Fuel, Personalized.", d: "11 diagnostic metrics feed a bespoke amino acid distribution curve tuned for your body." },
-              { k: "Nutrition That Knows You.", d: "We map your gut, allergies, sweetener sensitivity and objectives against real Indian shelves." },
-              { k: "Protein, Reimagined.", d: "One unflavored base. Eight rotating flavor sachets. Zero compromises. Complete personalization." },
-            ].map((c) => (
-              <div key={c.k} className="oryn-card">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-accent">Pillar</p>
-                <h3 className="serif text-xl mt-3 text-ink">{c.k}</h3>
-                <p className="mt-3 text-sm text-ink-soft leading-relaxed">{c.d}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <div className="grid md:grid-cols-[1fr_1.4fr] gap-12 items-center">
-          <div>
-            <p className="oryn-chip">The Oryn Method</p>
-            <h2 className="serif text-4xl mt-6 text-ink">Three inputs. One custom protein architecture.</h2>
-          </div>
-          <ol className="space-y-6 text-ink-soft">
-            {[
-              ["01", "Diagnostic Sweep", "11 tactile questions capture your physical, dietary and gut profile."],
-              ["02", "Market Cross-Reference", "Every prominent plant protein in India is scored against your inputs."],
-              ["03", "Custom Formulation", "You receive a scored ideal formula and two live market alternatives."],
-            ].map(([n, t, d]) => (
-              <li key={n} className="grid grid-cols-[auto_1fr] gap-6 items-start border-b border-line pb-6">
-                <span className="serif text-3xl text-accent">{n}</span>
-                <div>
-                  <p className="serif text-xl text-ink">{t}</p>
-                  <p className="text-sm mt-1">{d}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-        <div className="mt-16 text-center">
-          <button onClick={onStart} className="oryn-btn oryn-btn-accent text-base px-8 py-4">
-            Start My 60-Second Match →
-          </button>
         </div>
       </section>
     </>
@@ -498,8 +445,7 @@ function Choice({ value, onChange, options }: {
 }
 
 function SelectCards({ label, value, onChange, options }: {
-  label: string; value: string; onChange: (v: string) => void;
-  options: { v: string; l: string }[];
+  label: string; value: string; onChange: (v: string) => void; options: { v: string; l: string }[];
 }) {
   return (
     <div>
@@ -519,8 +465,7 @@ function SelectCards({ label, value, onChange, options }: {
 }
 
 function Multi({ value, onChange, options }: {
-  value: string[]; onChange: (v: string[]) => void;
-  options: { v: string; l: string }[];
+  value: string[]; onChange: (v: string[]) => void; options: { v: string; l: string }[];
 }) {
   const toggle = (v: string) => {
     if (v === "none") { onChange(["none"]); return; }
@@ -550,11 +495,11 @@ function Multi({ value, onChange, options }: {
 /* ------------------------------ Processing ------------------------------ */
 
 const PROCESS_LINES = [
-  "Parsing physical architecture metrics and calculating localized BMI values…",
-  "Running multi-stage immuno-allergen exclusions and gut sensitivity filters…",
-  "Cross-referencing parameters against the primary database of Indian market formulations…",
-  "Calibrating amino acid distribution ratios against target kinetic objectives…",
-  "Optimizing custom sachet configuration and final confidence scores…",
+  "Parsing your physical architecture and calculating your daily protein target…",
+  "Running allergen and dietary hard filters against the Indian catalogue…",
+  "Cross-referencing gut sensitivity and sweetener preferences…",
+  "Ranking candidates by macro density, label cleanliness and fit…",
+  "Finalising your ideal match and closest alternative…",
 ];
 
 function Processing() {
@@ -593,10 +538,8 @@ function Processing() {
 /* -------------------------------- Results -------------------------------- */
 
 function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey, onContinue }: {
-  profile: Profile; bmi: number; proteinNeed: number;
-  matches: NonNullable<ReturnType<typeof findMatches>>;
-  aiRec: GeminiRecommendation | null;
-  aiLoading: boolean;
+  profile: Profile; bmi: number; proteinNeed: number; matches: MatchResult;
+  aiRec: GeminiRecommendation | null; aiLoading: boolean;
   survey: {
     surveyBrand: string; setSurveyBrand: (v: string) => void;
     frustration: string; setFrustration: (v: string) => void;
@@ -604,8 +547,7 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
   };
   onContinue: () => void;
 }) {
-  // Resolve Gemini's brand picks against the live catalogue. Fall back to
-  // the local scorer if Gemini didn't return a usable pick.
+  // Resolve Gemini's picks against the live catalogue; fall back to the local scorer.
   const resolveByPick = (pick: { brand: string; productName?: string } | null | undefined): Product | null => {
     if (!pick) return null;
     const list = PRODUCTS.filter((p) => p.brand.toLowerCase() === pick.brand.toLowerCase());
@@ -616,10 +558,37 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
     }
     return list[0];
   };
-  const topProduct   = resolveByPick(aiRec?.topMatch)    ?? matches.top?.product    ?? null;
-  const budgetProduct = resolveByPick(aiRec?.budgetMatch) ?? matches.budget?.product ?? null;
-  const topWhy    = aiRec?.topMatch?.why    ?? matches.top?.reasons.slice(0, 2).join(". ")    ?? "";
-  const budgetWhy = aiRec?.budgetMatch?.why ?? matches.budget?.reasons.slice(0, 2).join(". ") ?? "";
+  const idealProduct = resolveByPick(aiRec?.idealMatch) ?? matches.ideal?.product ?? null;
+  const closeProduct = resolveByPick(aiRec?.closeMatch) ?? matches.close?.product ?? null;
+  const idealWhy = aiRec?.idealMatch?.why ?? matches.ideal?.reasons.slice(0, 2).join(". ") ?? "";
+  const closeWhy = aiRec?.closeMatch?.why ?? matches.close?.reasons.slice(0, 2).join(". ") ?? "";
+
+  // Flavor availability check
+  const flavorMissingNote = (() => {
+    if (!profile.flavor || !idealProduct) return null;
+    if (!idealProduct.flavorTags.includes(profile.flavor)) {
+      const flavorLabel = FLAVOR_LABELS[profile.flavor];
+      return `${idealProduct.brand} does not currently offer ${flavorLabel}. You'll need to pick a different flavor from their range — we haven't silently swapped you to Chocolate.`;
+    }
+    return null;
+  })();
+
+  if (matches.unsafe || (!idealProduct && !closeProduct)) {
+    return (
+      <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        className="mx-auto max-w-3xl px-6 pt-24 pb-24">
+        <p className="oryn-chip mb-6">Analysis complete</p>
+        <h2 className="serif text-4xl md:text-5xl text-ink leading-tight">
+          {profile.name.split(" ")[0]}, we can't recommend a product for you right now.
+        </h2>
+        <p className="mt-6 text-ink-soft leading-relaxed">
+          Your allergen profile removes every product currently on Indian shelves in our catalogue. Rather
+          than surface something unsafe, we'd rather be honest — please talk to a registered dietitian for
+          a bespoke plan.
+        </p>
+      </motion.section>
+    );
+  }
 
   return (
     <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -630,14 +599,25 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
       </h2>
       <div className="mt-8 grid md:grid-cols-2 gap-6">
         <Metric label="BMI" value={String(bmi)} sub={bmiClass(bmi)} />
-        <Metric label="Daily Protein Target" value={`${proteinNeed}g`} sub="calibrated to activity + objective" />
+        <Metric label="Daily Protein Target" value={`${proteinNeed}g`} sub="calibrated to your activity + objective" />
       </div>
       <p className="mt-8 text-sm text-ink-soft max-w-3xl">
         Based on your weight of {profile.weightKg}kg, your {profile.activity} activity load and a {profile.objective.replace("-", " ")} objective,
         your metabolism needs roughly {proteinNeed}g of protein daily — distributed across 2–3 doses for optimal amino acid saturation.
       </p>
 
-      {/* Gemini AI recommendation — Daily Protocol + Market Verdict only */}
+      {matches.relaxed && (
+        <div className="mt-6 rounded-md border border-accent/40 bg-accent/5 p-4 text-sm text-ink">
+          <strong>Heads up:</strong> {matches.relaxed}
+        </div>
+      )}
+      {flavorMissingNote && (
+        <div className="mt-4 rounded-md border border-accent/40 bg-accent/5 p-4 text-sm text-ink">
+          <strong>Flavor note:</strong> {flavorMissingNote}
+        </div>
+      )}
+
+      {/* Gemini live recommendation */}
       <div className="mt-12 rounded-md border border-line bg-cream-deep/40 p-8 md:p-10">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <p className="oryn-chip">Live Recommendation · Indian Market · July 2026</p>
@@ -650,7 +630,6 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
             <div className="h-4 w-3/4 bg-line/70 animate-pulse rounded" />
             <div className="h-3 w-full bg-line/60 animate-pulse rounded" />
             <div className="h-3 w-5/6 bg-line/60 animate-pulse rounded" />
-            <div className="h-3 w-2/3 bg-line/60 animate-pulse rounded" />
           </div>
         ) : aiRec ? (
           <div className="mt-6 space-y-6">
@@ -669,64 +648,31 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
         ) : null}
       </div>
 
-      {/* Match cards — Top Market Match + Smart Budget Alternative only */}
+      {/* Ideal + Close match */}
       <div className="mt-14 grid md:grid-cols-2 gap-6">
-        {topProduct && (
-          <MatchCard
-            badge="Top Match"
-            ideal
-            title="Top Market Match"
-            brand={topProduct.brand}
-            productName={topProduct.productName}
-            reason={topWhy}
+        {idealProduct && (
+          <MatchCard badge="Ideal Match" ideal
+            title="Ideal Match"
+            brand={idealProduct.brand} productName={idealProduct.productName}
+            reason={idealWhy}
             detail={["Base", "Protein / serving", "Cost / kg", "Sweetener"]}
-            detailVal={[topProduct.base, topProduct.proteinPerServing, `₹${topProduct.pricePerKg.toLocaleString("en-IN")}`, topProduct.sweetener]}
+            detailVal={[idealProduct.base, idealProduct.proteinPerServing, `₹${idealProduct.pricePerKg.toLocaleString("en-IN")}`, idealProduct.sweetener]}
           />
         )}
-        {budgetProduct && (
-          <MatchCard
-            badge="Smart Budget"
-            title="Smart Budget Alternative"
-            brand={budgetProduct.brand}
-            productName={budgetProduct.productName}
-            reason={budgetWhy}
+        {closeProduct && (
+          <MatchCard badge="Close Match"
+            title="Close Match"
+            brand={closeProduct.brand} productName={closeProduct.productName}
+            reason={`${closeWhy}${idealProduct ? ` What's different: ${describeDifference(idealProduct, closeProduct)}.` : ""}`}
             detail={["Base", "Protein / serving", "Cost / kg", "Sweetener"]}
-            detailVal={[budgetProduct.base, budgetProduct.proteinPerServing, `₹${budgetProduct.pricePerKg.toLocaleString("en-IN")}`, budgetProduct.sweetener]}
+            detailVal={[closeProduct.base, closeProduct.proteinPerServing, `₹${closeProduct.pricePerKg.toLocaleString("en-IN")}`, closeProduct.sweetener]}
           />
         )}
       </div>
 
-      {/* Gainful-style pivot — introduced AFTER the honest market recommendation */}
-      <div className="mt-16 rounded-md border border-ink bg-ink text-cream p-8 md:p-12">
-        <p className="text-[10px] uppercase tracking-[0.24em] text-accent">The Market Reality</p>
-        <h3 className="serif text-3xl md:text-4xl mt-4 leading-tight">
-          Even your top match ships a single locked-in flavor.
-        </h3>
-        <div className="mt-6 grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-cream/85">
-          <p>
-            Every product on Indian shelves — Cosmix, Origin, MuscleBlaze, Nakpro — is a fixed 1kg tub with
-            one flavor. You buy chocolate on Monday and you're still drinking chocolate on Friday of week 12.
-            That's flavor fatigue, and it's the single biggest reason people quit plant protein.
-          </p>
-          <p>
-            The Gainful playbook (USA) proved a cleaner path — one clean unflavored base + rotating flavor
-            packets = endless variety, zero fatigue, one custom formula. Oryn is building that architecture
-            for Indian bodies, Indian gut profiles, and Indian palates.
-          </p>
-        </div>
-        <div className="mt-8 grid md:grid-cols-4 gap-3">
-          {["Tear open a flavor packet", "Mix into your clean base", "Rotate daily across 8 flavors", "Never repeat a week"].map((s, i) => (
-            <div key={s} className="rounded-md border border-cream/20 p-4">
-              <p className="serif text-2xl text-accent-soft">0{i + 1}</p>
-              <p className="text-sm mt-2 text-cream">{s}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Comparison table — real market products only, no Oryn row */}
+      {/* Market Reality — comparison table FIRST */}
       <div className="mt-16">
-        <p className="oryn-chip mb-4">Cross-Reference Matrix · Indian Market</p>
+        <p className="oryn-chip mb-4">Market Reality · Cross-Reference Matrix</p>
         <h3 className="serif text-3xl text-ink">Product Comparison</h3>
         <div className="mt-6 overflow-x-auto border border-line rounded-md">
           <table className="w-full text-sm">
@@ -738,7 +684,7 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
               </tr>
             </thead>
             <tbody>
-              {[topProduct, budgetProduct].filter(Boolean).map((p, idx) => (
+              {[idealProduct, closeProduct].filter(Boolean).map((p, idx) => (
                 <tr key={p!.brand + idx} className={idx === 0 ? "bg-accent/5 border-t border-line" : "border-t border-line"}>
                   <td className="px-4 py-3 serif text-ink">{p!.brand} <span className="text-ink-muted text-xs">· {p!.productName}</span></td>
                   <td className="px-4 py-3">{p!.base}</td>
@@ -752,16 +698,28 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
             </tbody>
           </table>
         </div>
+
+        {/* Hook — placed AFTER the table */}
+        <div className="mt-10 rounded-md border border-ink bg-ink text-cream p-8 md:p-12">
+          <p className="text-[10px] uppercase tracking-[0.24em] text-accent">The Oryn Method</p>
+          <h3 className="serif text-3xl md:text-4xl mt-4 leading-tight">
+            No flavour fatigue here.
+          </h3>
+          <p className="mt-6 text-cream/85 leading-relaxed max-w-3xl">
+            Think of it like a booster sachet — every scoop is a clean, customised base, and you choose the flavour
+            layer on top. Stick to your favourite from our 8 flavours, or switch it up every single day. Either way,
+            the base underneath stays built around you.
+          </p>
+        </div>
       </div>
 
-      {/* Validation survey */}
+      {/* Calibration survey */}
       <div className="mt-20">
         <p className="oryn-chip mb-4">Cohort Signal</p>
         <h3 className="serif text-3xl text-ink">Help calibrate our first batch.</h3>
         <div className="mt-8 space-y-8">
           <SurveyBlock label="F1 — Which protein are you currently on?">
-            <SurveyPills value={survey.surveyBrand} onChange={survey.setSurveyBrand}
-              options={CALIBRATION_BRANDS} />
+            <SurveyPills value={survey.surveyBrand} onChange={survey.setSurveyBrand} options={CALIBRATION_BRANDS} />
           </SurveyBlock>
           <SurveyBlock label="F2 — What's your primary frustration today?">
             <SurveyPills value={survey.frustration} onChange={survey.setFrustration} options={[
@@ -769,9 +727,9 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
               "Gritty / chalky mouthfeel", "Synthetic stabilisers & fillers",
             ]} />
           </SurveyBlock>
-          <SurveyBlock label="F3 — Would a rotating sachet flavor system beat a single locked-in tub?">
+          <SurveyBlock label="F3 — Would a rotating flavour sachet system beat a single locked-in tub?">
             <SurveyPills value={survey.sachet} onChange={survey.setSachet} options={[
-              "Yes — completely aligns", "Maybe — depends on pricing", "No — I prefer flavor consistency",
+              "Yes — completely aligns", "Maybe — depends on pricing", "No — I prefer flavour consistency",
             ]} />
           </SurveyBlock>
         </div>
@@ -804,7 +762,7 @@ function MatchCard({ badge, ideal, title, brand, productName, reason, detail, de
     <div className={`rounded-md border p-6 flex flex-col ${ideal ? "border-accent bg-accent/5" : "border-line bg-card"}`}>
       <div className="flex items-start justify-between">
         <p className="text-[10px] uppercase tracking-[0.22em] text-ink-muted">{title}</p>
-        <span className="serif text-lg text-accent">{badge}</span>
+        <span className="serif text-sm text-accent">{badge}</span>
       </div>
       <h4 className="serif text-2xl text-ink mt-4 leading-tight">{brand}</h4>
       {productName && <p className="text-xs text-ink-muted mt-1">{productName}</p>}
@@ -860,8 +818,7 @@ function Waitlist({ name, setName, email, setEmail, phone, setPhone, onSubmit }:
       <p className="oryn-chip mb-6">Priority Cohort</p>
       <h2 className="serif text-4xl md:text-5xl text-ink leading-tight">Secure Priority Cohort Placement for Oryn.</h2>
       <p className="mt-4 text-ink-soft">
-        We are building the architecture of personalized nutrition. Join our priority access group
-        to secure allocations for our first customized batch productions.
+        Join our priority access group to secure allocation in the first customised batch.
       </p>
       <div className="mt-10 space-y-6">
         <Field label="Full Name" value={name} onChange={setName} />
@@ -877,26 +834,17 @@ function Waitlist({ name, setName, email, setEmail, phone, setPhone, onSubmit }:
 }
 
 function Thanks({ name }: { name: string }) {
-  const wa = `https://wa.me/?text=${encodeURIComponent("Hi, I just completed my personalized metabolic calculation profile on Oryn!")}`;
   return (
     <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
       className="mx-auto max-w-2xl px-6 pt-24 pb-24">
-      <p className="oryn-chip mb-6">Logged</p>
+      <p className="oryn-chip mb-6">You're in the cohort</p>
       <h2 className="serif text-4xl md:text-5xl text-ink leading-tight">
-        Thank you, {name.split(" ")[0]}. Your profile is in.
+        You're in, {name.split(" ")[0]}.
       </h2>
       <p className="mt-6 text-ink-soft leading-relaxed">
-        Your physical profile and calculated metabolic constraints have been successfully logged.
-        Oryn was conceived because the conventional market assumes every body requires the exact
-        same structural footprint. Your data points toward a better path. We will notify you the
-        moment custom cohort batch slots unlock.
+        Your profile is locked into the priority cohort. We're calibrating the first batch around bodies like
+        yours — you'll hear from us the moment allocation opens. Something considered is coming.
       </p>
-      <div className="mt-10 flex flex-col sm:flex-row gap-3">
-        <a href={wa} target="_blank" rel="noreferrer" className="oryn-btn oryn-btn-accent">
-          Connect via WhatsApp Workspace
-        </a>
-        <a href="/" className="oryn-btn">Return home</a>
-      </div>
     </motion.section>
   );
 }
