@@ -1,6 +1,7 @@
 // Indian plant protein market dataset — July 2026
-// Sourced from user-provided market intel (brand sites, Amazon.in, Flipkart,
-// HealthKart, Nutrabay, 1mg, JioMart, PharmEasy, bigbasket).
+// Sourced from user-provided market intel across brand sites and major
+// Indian retailers (Amazon.in, Flipkart, HealthKart, Nutrabay, 1mg, JioMart,
+// PharmEasy, bigbasket).
 
 export type Product = {
   brand: string;
@@ -15,8 +16,8 @@ export type Product = {
   sweetener: string;
   gutFriendly: boolean;
   gutNote: string;
-  flavors: string[];      // display flavor names
-  flavorTags: FlavorKey[]; // canonical tags for matching
+  flavors: string[];
+  flavorTags: FlavorKey[];
   thirdParty: string;
   allergens: string[];
   vegan: boolean;
@@ -25,18 +26,18 @@ export type Product = {
 };
 
 export type FlavorKey =
-  | "chocolate" | "vanilla" | "coffee" | "matcha"
-  | "mango" | "cookies" | "berry" | "kulfi";
+  | "chocolate" | "vanilla" | "coffee" | "mango"
+  | "cookies" | "strawberry" | "kulfi" | "unflavoured";
 
 export const FLAVOR_LABELS: Record<FlavorKey, string> = {
-  chocolate: "🍫 Chocolate",
-  vanilla:   "🌿 Vanilla",
-  coffee:    "☕ Coffee",
-  matcha:    "🍵 Matcha",
-  mango:     "🥭 Mango",
-  cookies:   "🍪 Cookies & Cream",
-  berry:     "🍓 Berry",
-  kulfi:     "🍨 Kulfi",
+  chocolate:   "🍫 Chocolate",
+  vanilla:     "🌿 Vanilla",
+  coffee:      "☕ Coffee",
+  mango:       "🥭 Mango",
+  cookies:     "🍪 Cookies and Cream",
+  strawberry:  "🍓 Strawberry",
+  kulfi:       "🍨 Kulfi",
+  unflavoured: "🌾 Unflavoured",
 };
 
 export const PRODUCTS: Product[] = [
@@ -46,9 +47,9 @@ export const PRODUCTS: Product[] = [
     proteinPerServing: "24g / 32g serving", proteinGrams: 24, servingGrams: 32,
     pricePerKg: 2200, priceNote: "MRP ₹2,750 · SP ₹2,200 (1kg)",
     sugars: "No added sugar", sweetener: "Monk Fruit (Classic = None)",
-    gutFriendly: true, gutNote: "Clean-label, monk fruit only, no gums or fillers — gentle for sensitive guts",
+    gutFriendly: true, gutNote: "Clean-label, monk fruit only, no gums or fillers",
     flavors: ["Indonesian Cacao", "Chikmagalur Mocha", "Kerala Vanilla Bean", "Mint Chocolate Cacao", "Chilli Guava", "Classic Unflavoured"],
-    flavorTags: ["chocolate", "coffee", "vanilla"],
+    flavorTags: ["chocolate", "coffee", "vanilla", "unflavoured"],
     thirdParty: "Third-party lab tested (India)", allergens: [], vegan: true, containsDairy: false,
     positioning: "Clean-label wellness for sensitive guts & women",
   },
@@ -60,7 +61,7 @@ export const PRODUCTS: Product[] = [
     sugars: "No added sugar", sweetener: "No artificial sweetener claimed",
     gutFriendly: true, gutNote: "MDZenPro protease blend + curcumin + B12 + iron",
     flavors: ["Chocolate", "Mango", "Strawberry"],
-    flavorTags: ["chocolate", "mango", "berry"],
+    flavorTags: ["chocolate", "mango", "strawberry"],
     thirdParty: "Brand tested (Ayurveda-forward)", allergens: [], vegan: true, containsDairy: false,
     positioning: "Ayurveda + wellness, popular with women",
   },
@@ -71,7 +72,7 @@ export const PRODUCTS: Product[] = [
     pricePerKg: 2499, priceNote: "Verify on oziva.in — mixes into roti dough",
     sugars: "No added sugar", sweetener: "None",
     gutFriendly: true, gutNote: "Organic, unflavoured food-integration base",
-    flavors: ["Unflavoured"], flavorTags: [],
+    flavors: ["Unflavoured"], flavorTags: ["unflavoured"],
     thirdParty: "Organic-certified sources", allergens: [], vegan: true, containsDairy: false,
     positioning: "Organic everyday food-integration protein",
   },
@@ -105,7 +106,7 @@ export const PRODUCTS: Product[] = [
     sugars: "No added sugar", sweetener: "Monk Fruit Extract",
     gutFriendly: true, gutNote: "Monk fruit only, no artificial sweeteners",
     flavors: ["Chocolate", "Coffee", "Unflavoured"],
-    flavorTags: ["chocolate", "coffee"],
+    flavorTags: ["chocolate", "coffee", "unflavoured"],
     thirdParty: "Brand tested", allergens: [], vegan: true, containsDairy: false,
     positioning: "Clean-label for wellness buyers",
   },
@@ -161,7 +162,7 @@ export const PRODUCTS: Product[] = [
     brand: "Nakpro", productName: "Plant Protein",
     base: "Instantized Pea Isolate + Brown Rice (44:44)",
     proteinPerServing: "25.2g / 33g serving", proteinGrams: 25.2, servingGrams: 33,
-    pricePerKg: 1399, priceNote: "MRP ₹2,220 · SP ₹1,399 (as low as ₹1,299)",
+    pricePerKg: 1399, priceNote: "MRP ₹2,220 · SP ₹1,399",
     sugars: "No added sugar", sweetener: "Sucralose",
     gutFriendly: false, gutNote: "Sucralose-based, high-density isolate",
     flavors: ["Chocolate", "Mango", "Vanilla", "Cookies & Cream", "Coffee"],
@@ -176,7 +177,7 @@ export const PRODUCTS: Product[] = [
     pricePerKg: 1250, priceNote: "Confirm on nutrabay.com",
     sugars: "No added sugar", sweetener: "None",
     gutFriendly: true, gutNote: "Single-ingredient raw isolate, no additives",
-    flavors: ["Unflavoured"], flavorTags: [],
+    flavors: ["Unflavoured"], flavorTags: ["unflavoured"],
     thirdParty: "Brand tested", allergens: [], vegan: true, containsDairy: false,
     positioning: "Budget-friendly raw single-ingredient",
   },
@@ -211,7 +212,7 @@ export const PRODUCTS: Product[] = [
     pricePerKg: 2600, priceNote: "500g pack — verify mycf.in",
     sugars: "No added sugar", sweetener: "None",
     gutFriendly: true, gutNote: "Raw single-ingredient isolate",
-    flavors: ["Unflavoured"], flavorTags: [],
+    flavors: ["Unflavoured"], flavorTags: ["unflavoured"],
     thirdParty: "Brand tested", allergens: [], vegan: true, containsDairy: false,
     positioning: "Raw high-macro isolate",
   },
@@ -219,7 +220,7 @@ export const PRODUCTS: Product[] = [
     brand: "TrueBasics", productName: "Clean Plant Protein",
     base: "Pea Isolate + Brown Rice",
     proteinPerServing: "24g / 32g serving", proteinGrams: 24, servingGrams: 32,
-    pricePerKg: 2499, priceNote: "MRP ₹2,799 · SP ₹2,499 (also ₹2,519 on PharmEasy)",
+    pricePerKg: 2499, priceNote: "MRP ₹2,799 · SP ₹2,499",
     sugars: "No added sugar", sweetener: "None — cocoa + natural flavour only",
     gutFriendly: true, gutNote: "No added sweetener at all, ultra-clean label",
     flavors: ["Chocolate"], flavorTags: ["chocolate"],
@@ -233,7 +234,7 @@ export const PRODUCTS: Product[] = [
     pricePerKg: 2699, priceNote: "Verify wellbeingnutrition.com",
     sugars: "No added sugar", sweetener: "Monk Fruit",
     gutFriendly: true, gutNote: "Superfood matrix + monk fruit only",
-    flavors: ["Multiple — check site"], flavorTags: ["chocolate", "vanilla"],
+    flavors: ["Chocolate", "Vanilla"], flavorTags: ["chocolate", "vanilla"],
     thirdParty: "Brand tested", allergens: [], vegan: true, containsDairy: false,
     positioning: "Premium superfood matrix",
   },
@@ -242,7 +243,7 @@ export const PRODUCTS: Product[] = [
     base: "Pea Isolate + Brown Rice",
     proteinPerServing: "25g / 33g serving", proteinGrams: 25, servingGrams: 33,
     pricePerKg: 1814, priceNote: "SP ₹1,814 (45% off)",
-    sugars: "Some pack photos show sucrose", sweetener: "Mixed (verify)",
+    sugars: "Some pack photos show sucrose", sweetener: "Mixed (verify pack)",
     gutFriendly: false, gutNote: "Labeling inconsistencies reported",
     flavors: ["Chocolate", "Cafe Mocha"], flavorTags: ["chocolate", "coffee"],
     thirdParty: "Brand tested", allergens: [], vegan: true, containsDairy: false,
@@ -256,19 +257,19 @@ export const PRODUCTS: Product[] = [
     sugars: "Not fully disclosed", sweetener: "Not fully disclosed",
     gutFriendly: false, gutNote: "Disclosure gaps on pack",
     flavors: ["Chocolate", "Cafe Mocha", "Strawberry"],
-    flavorTags: ["chocolate", "coffee", "berry"],
+    flavorTags: ["chocolate", "coffee", "strawberry"],
     thirdParty: "HK-referenced", allergens: [], vegan: true, containsDairy: false,
     positioning: "HealthKart house label",
   },
   {
     brand: "Origin Nutrition", productName: "100% Natural Plant Protein",
-    base: "European/Canadian Golden Pea Isolate + Organic Pumpkin Seed",
+    base: "European Golden Pea Isolate + Organic Pumpkin Seed",
     proteinPerServing: "25g / 33g serving", proteinGrams: 25, servingGrams: 33,
     pricePerKg: 2149, priceNote: "MRP ₹2,225 · SP ₹1,869 (~975g)",
     sugars: "No added sugar", sweetener: "Stevia",
     gutFriendly: true, gutNote: "Stevia-only, organic pumpkin seed matrix",
     flavors: ["Chocolate", "Vanilla", "Filter Coffee", "Strawberry", "Coffee Caramel", "Malai Kulfi", "Unflavoured"],
-    flavorTags: ["chocolate", "vanilla", "coffee", "berry", "kulfi"],
+    flavorTags: ["chocolate", "vanilla", "coffee", "strawberry", "kulfi", "unflavoured"],
     thirdParty: "Brand tested", allergens: [], vegan: true, containsDairy: false,
     positioning: "Premium natural with widest flavor lineup",
   },
@@ -280,7 +281,7 @@ export const PRODUCTS: Product[] = [
     sugars: "No added sugar", sweetener: "Stevia",
     gutFriendly: true, gutNote: "Stevia-only, gentle base",
     flavors: ["Mango", "Berry", "Coffee", "Pista", "Chocolate"],
-    flavorTags: ["mango", "berry", "coffee", "chocolate"],
+    flavorTags: ["mango", "strawberry", "coffee", "chocolate"],
     thirdParty: "Brand tested", allergens: [], vegan: true, containsDairy: false,
     positioning: "Emerging clean-label variety",
   },
@@ -300,10 +301,10 @@ export const PRODUCTS: Product[] = [
     brand: "AS-IT-IS Nutrition", productName: "ONE Pea Protein Isolate",
     base: "Pea Isolate (single ingredient)",
     proteinPerServing: "29g / 33g serving", proteinGrams: 29, servingGrams: 33,
-    pricePerKg: 1157, priceNote: "MRP ₹1,446 · SP ₹1,157 (as low as ₹949)",
+    pricePerKg: 1157, priceNote: "MRP ₹1,446 · SP ₹1,157",
     sugars: "No added sugar", sweetener: "None",
     gutFriendly: true, gutNote: "Single-ingredient raw isolate — highest macro density",
-    flavors: ["Unflavoured"], flavorTags: [],
+    flavors: ["Unflavoured"], flavorTags: ["unflavoured"],
     thirdParty: "Brand tested", allergens: [], vegan: true, containsDairy: false,
     positioning: "Cheapest raw high-protein isolate",
   },
@@ -319,13 +320,13 @@ export type Profile = {
   weightKg: number;
   objective: "fat-loss" | "muscle-gain" | "longevity" | "maintenance";
   activity: "sedentary" | "light" | "moderate" | "high";
-  diet: "vegan" | "vegetarian" | "flexitarian" | "eggitarian";
+  diet: "vegan" | "vegetarian";
   health: string[];
-  gut: "pristine" | "bloating" | "lactose" | "ibs";
+  gut: "pristine" | "bloating" | "ibs";
   sweetener: "stevia" | "monk" | "raw" | "any";
   allergens: string[];
   budget: "value" | "mid" | "luxury" | "any";
-  flavors: FlavorKey[];
+  flavor: FlavorKey | "";
   habit: string;
 };
 
@@ -349,81 +350,138 @@ export function computeProteinNeed(p: Profile): number {
   return Math.round(p.weightKg * factor);
 }
 
-const budgetRange: Record<Profile["budget"], [number, number]> = {
-  value: [0, 1500], mid: [1500, 2500], luxury: [2500, 99999], any: [0, 99999],
-};
+/* --------------------------- Filtering + scoring -------------------------- */
 
-/**
- * Local fallback scorer — used only when Gemini fails.
- * Adds intentional variety so results aren't dominated by one brand:
- *   - Women + gut issues → Cosmix / Origin / Yogabar boost
- *   - Raw / unsweetened → AS-IT-IS / Nutrabay Pure / TrueBasics boost
- *   - Kulfi/Mango/Cookies flavor asks → Fast&Up / Origin / Nakpro boost
- */
-export function scoreProduct(product: Product, p: Profile): { score: number; reasons: string[] } {
+// Hard filters — NEVER relaxed.
+function passesDiet(pr: Product, p: Profile): boolean {
+  // Diet is a hard filter. All current products are plant-based, but keep the
+  // structure ready for future non-vegan additions.
+  if (p.diet === "vegan" && !pr.vegan) return false;
+  return true;
+}
+function passesAllergen(pr: Product, p: Profile): boolean {
+  for (const a of p.allergens) {
+    if (a && a !== "none" && pr.allergens.includes(a)) return false;
+  }
+  return true;
+}
+
+// Preferential filters — may be relaxed if the candidate pool is empty.
+function passesGut(pr: Product, p: Profile): boolean {
+  if (p.gut === "pristine") return true;
+  return pr.gutFriendly; // bloating & IBS require a gentle base
+}
+function passesSweetener(pr: Product, p: Profile): boolean {
+  if (p.sweetener === "any") return true;
+  const s = pr.sweetener;
+  if (p.sweetener === "raw")    return /None/i.test(s);
+  if (p.sweetener === "monk")   return /Monk/i.test(s) || /None/i.test(s);
+  if (p.sweetener === "stevia") return /Stevia/i.test(s) || /None/i.test(s);
+  return true;
+}
+
+// Ranking score — used only AFTER hard + preferential filters pass.
+// Primary goal alignment first, flavor + budget only for tie-breaking.
+function rankScore(pr: Product, p: Profile): { score: number; reasons: string[] } {
   const reasons: string[] = [];
-  if (p.diet === "vegan" && !product.vegan) return { score: 0, reasons: [] };
-  for (const a of p.allergens) if (a !== "none" && product.allergens.includes(a)) return { score: 0, reasons: [] };
-
   let s = 0;
-  // Gut (25)
-  if (p.gut === "pristine") s += product.gutFriendly ? 22 : 18;
-  else if (p.gut === "bloating") s += product.gutFriendly ? 25 : 8;
-  else if (p.gut === "lactose") s += 22;
-  else if (p.gut === "ibs") s += product.gutFriendly ? 25 : 4;
-  if (product.gutFriendly) reasons.push("Gentle for your gut profile");
 
-  // Sweetener (15)
-  if (p.sweetener === "any") s += 12;
-  else if (p.sweetener === "stevia" && /Stevia/i.test(product.sweetener)) { s += 15; reasons.push("Stevia-only match"); }
-  else if (p.sweetener === "monk" && /Monk/i.test(product.sweetener)) { s += 15; reasons.push("Monk-fruit-only match"); }
-  else if (p.sweetener === "raw" && /None/i.test(product.sweetener)) { s += 15; reasons.push("Fully unsweetened base"); }
-  else if (/Sucralose|Artificial/i.test(product.sweetener)) s += 3;
-  else s += 8;
-
-  // Flavor (15)
-  const hits = p.flavors.filter((f) => product.flavorTags.includes(f)).length;
-  s += p.flavors.length ? Math.min(15, (hits / p.flavors.length) * 15) : 10;
-  if (hits >= 2) reasons.push("Strong flavor overlap");
-
-  // Budget (20)
-  const [lo, hi] = budgetRange[p.budget];
-  const inTier = product.pricePerKg >= lo && product.pricePerKg <= hi;
-  s += inTier ? 20 : Math.max(0, 20 - Math.abs(product.pricePerKg - (lo + hi) / 2) / 200);
-  if (inTier) reasons.push("Inside your budget tier");
-
-  // Macro density (15)
-  const density = product.proteinGrams / product.servingGrams;
-  s += Math.min(15, density * 20);
+  // Primary — protein density vs daily target (max 30)
+  const density = pr.proteinGrams / pr.servingGrams;
+  s += Math.min(30, density * 38);
   if (density > 0.78) reasons.push("High protein density");
 
-  // Bias corrections to avoid monoculture
+  // Primary — gut alignment strength (max 25)
+  if (pr.gutFriendly) { s += 25; reasons.push("Gentle for your gut profile"); }
+  else s += 10;
+
+  // Primary — sweetener label cleanliness (max 20)
+  const sw = pr.sweetener;
+  if (/None/i.test(sw))                                    { s += 20; reasons.push("Fully unsweetened base"); }
+  else if (/Monk/i.test(sw))                                { s += 18; reasons.push("Monk-fruit-sweetened"); }
+  else if (/Stevia/i.test(sw))                              { s += 16; reasons.push("Stevia-sweetened"); }
+  else if (/Sucralose|Acesulfame|Artificial|Mixed/i.test(sw)) s += 4;
+  else s += 8;
+
+  // Tie-breakers — flavor match (max 8)
+  if (p.flavor && pr.flavorTags.includes(p.flavor)) { s += 8; reasons.push("Offers your chosen flavor"); }
+
+  // Tie-breakers — budget tier fit (max 7)
+  const budgetTier: Record<Profile["budget"], [number, number]> = {
+    value: [0, 1500], mid: [1500, 2500], luxury: [2500, 99999], any: [0, 99999],
+  };
+  const [lo, hi] = budgetTier[p.budget];
+  if (pr.pricePerKg >= lo && pr.pricePerKg <= hi) { s += 7; reasons.push("Inside your budget tier"); }
+  else s += Math.max(0, 5 - Math.abs(pr.pricePerKg - (lo + hi) / 2) / 500);
+
+  // Small correction for female users with sensitive digestion — Cosmix,
+  // Origin, OZiva and Yogabar are documented as women-friendly clean-label,
+  // so bump them slightly to avoid a Nakpro/MuscleBlaze default.
   if (p.sex === "female" && (p.gut === "bloating" || p.gut === "ibs")) {
-    if (product.brand === "Cosmix") { s += 12; reasons.push("Preferred for women with sensitive digestion"); }
-    if (product.brand === "OZiva")  { s += 6; }
-    if (product.brand === "Origin Nutrition") { s += 5; }
+    if (pr.brand === "Cosmix") s += 6;
+    if (pr.brand === "Origin Nutrition") s += 4;
+    if (pr.brand === "OZiva") s += 3;
+    if (pr.brand === "Yogabar") s += 3;
   }
-  if (p.sweetener === "raw") {
-    if (product.brand === "AS-IT-IS Nutrition" || (product.brand === "Nutrabay" && /Pure/i.test(product.productName))) s += 10;
-    if (product.brand === "TrueBasics") s += 6;
-  }
-  if (p.objective === "longevity" && product.brand === "Wellbeing Nutrition") s += 6;
-  if (p.flavors.includes("kulfi") && product.flavorTags.includes("kulfi")) s += 8;
-  if (p.flavors.includes("cookies") && product.flavorTags.includes("cookies")) s += 6;
 
   return { score: Math.round(s), reasons };
 }
 
-export function findMatches(p: Profile) {
-  const scored = PRODUCTS.map((product) => ({ product, ...scoreProduct(product, p) }))
-    .filter((r) => r.score > 0)
+export type Match = { product: Product; score: number; reasons: string[] };
+export type MatchResult = {
+  ideal: Match | null;
+  close: Match | null;
+  relaxed: string | null;   // plain-language note on any relaxed filter
+  unsafe: boolean;          // true only when allergen filter alone empties the pool
+};
+
+export function findMatches(p: Profile): MatchResult {
+  const hard = PRODUCTS.filter((pr) => passesDiet(pr, p) && passesAllergen(pr, p));
+  if (hard.length === 0) {
+    // Allergen (or diet) alone removed everything — never surface an unsafe pick.
+    return { ideal: null, close: null, relaxed: null, unsafe: true };
+  }
+
+  let pool = hard.filter((pr) => passesGut(pr, p) && passesSweetener(pr, p));
+  let relaxed: string | null = null;
+
+  if (pool.length === 0) {
+    pool = hard.filter((pr) => passesSweetener(pr, p));
+    relaxed = "None of our products fully matched your gut sensitivity preference, so we've shown the closest option based on your other answers.";
+  }
+  if (pool.length === 0) {
+    pool = hard;
+    relaxed = "None of our products matched your exact sweetener preference, so we've shown the closest option based on your other answers.";
+  }
+
+  const scored: Match[] = pool
+    .map((pr) => ({ product: pr, ...rankScore(pr, p) }))
     .sort((a, b) => b.score - a.score);
-  const [lo, hi] = budgetRange[p.budget];
-  const inTier = scored.filter((s) => s.product.pricePerKg >= lo && s.product.pricePerKg <= hi);
-  const top = inTier[0] ?? scored[0];
-  const cheaper = scored.filter((s) => s.product.pricePerKg < (top?.product.pricePerKg ?? 99999) && s.product.brand !== top?.product.brand);
-  const budget = cheaper[0] ?? scored.find((s) => s.product.brand !== top?.product.brand) ?? scored[1];
-  return { top, budget };
+
+  const ideal = scored[0] ?? null;
+  const close =
+    scored.find((s) => s.product.brand !== ideal?.product.brand) ??
+    scored[1] ?? null;
+
+  if (typeof window !== "undefined" && import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log("[Oryn] candidate scores:", scored.map((s) => ({
+      brand: s.product.brand, product: s.product.productName, score: s.score, reasons: s.reasons,
+    })));
+  }
+
+  return { ideal, close, relaxed, unsafe: false };
+}
+
+/** Short one-liner describing why the Close Match differs from the Ideal. */
+export function describeDifference(ideal: Product, close: Product): string {
+  const diffs: string[] = [];
+  if (ideal.sweetener !== close.sweetener) diffs.push(`different sweetener (${close.sweetener.split(" ")[0]})`);
+  if (Math.abs(ideal.pricePerKg - close.pricePerKg) >= 300) {
+    diffs.push(close.pricePerKg < ideal.pricePerKg ? "cheaper price tier" : "higher price tier");
+  }
+  if (ideal.gutFriendly && !close.gutFriendly) diffs.push("less gut-optimized");
+  return diffs.length ? diffs.slice(0, 2).join(", ") : "closest runner-up on macros and label";
 }
 
 // Brand list ordered for the calibration survey — Cosmix first.
