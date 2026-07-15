@@ -15,11 +15,13 @@ export type GeminiRecommendationInput = {
     sweetener: string;
     budget: string;
     allergens: string[];
-    flavors: string[];
+    flavor: string;
     habit: string;
   };
   bmi: number;
   proteinNeed: number;
+  candidatePool: Array<{ brand: string; productName: string; score: number; reasons: string[] }>;
+  relaxed: string | null;
 };
 
 export type GeminiPick = { brand: string; productName: string; why: string };
@@ -28,19 +30,22 @@ export type GeminiRecommendation = {
   headline: string;
   dailyProtocol: string;
   marketVerdict: string;
-  topMatch: GeminiPick | null;
-  budgetMatch: GeminiPick | null;
+  idealMatch: GeminiPick | null;
+  closeMatch: GeminiPick | null;
   source: "gemini" | "fallback";
 };
 
 function catalogForPrompt() {
   return PRODUCTS.map((p) =>
-    `- ${p.brand} · ${p.productName} | base=${p.base} | ${p.proteinPerServing} | ₹${p.pricePerKg}/kg (${p.priceNote ?? "listed"}) | sweetener=${p.sweetener} | gutFriendly=${p.gutFriendly} | flavors=${p.flavors.join("/")} | note=${p.positioning}`
+    `- ${p.brand} · ${p.productName} | base=${p.base} | ${p.proteinPerServing} | ₹${p.pricePerKg}/kg | sweetener=${p.sweetener} | gutFriendly=${p.gutFriendly} | flavors=${p.flavors.join("/")} | note=${p.positioning}`
   ).join("\n");
 }
 
 function buildPrompt(input: GeminiRecommendationInput): string {
-  const { profile, bmi, proteinNeed } = input;
+  const { profile, bmi, proteinNeed, candidatePool, relaxed } = input;
+  const pool = candidatePool.length
+    ? candidatePool.map((c) => `- ${c.brand} · ${c.productName} (rank score ${c.score}) — ${c.reasons.join(", ")}`).join("\n")
+    : "(engine returned no candidates)";
   return `You are Oryn — India's expert AI plant-protein advisor (July 2026). Speak with quiet confidence, no hype, no emojis.
 
 USER PROFILE
@@ -48,45 +53,53 @@ USER PROFILE
 - Body: ${profile.heightCm}cm · ${profile.weightKg}kg (BMI ${bmi})
 - Objective: ${profile.objective}  |  Activity: ${profile.activity}  |  Diet: ${profile.diet}
 - Gut: ${profile.gut}  |  Sweetener pref: ${profile.sweetener}  |  Budget tier: ${profile.budget}
-- Allergens to avoid: ${profile.allergens.join(", ") || "none"}
-- Flavor tags requested: ${profile.flavors.join(", ") || "unspecified"}
+- Allergens: ${profile.allergens.join(", ") || "none"}
+- Flavor pick: ${profile.flavor || "unspecified"}
 - Daily protein target (calculated): ${proteinNeed}g
-- Supplement history: ${profile.habit || "not provided"}
+- Habit context: ${profile.habit || "not provided"}
+${relaxed ? `- RELAXED FILTER NOTE: ${relaxed}` : ""}
 
-INDIAN PLANT-PROTEIN CATALOGUE (July 2026 prices, top 20+ brands):
+FILTERED CANDIDATE POOL (already passed hard filters — diet, allergens, gut, sweetener):
+${pool}
+
+FULL INDIAN CATALOGUE for reference (July 2026):
 ${catalogForPrompt()}
 
-BIAS CORRECTIONS you MUST honor:
-- Women + gut issues (bloating/IBS) → strongly favor Cosmix No-Nonsense or Origin Nutrition; do NOT default to Earthful/Nakpro.
-- Sweetener = raw/unsweetened → favor AS-IT-IS ONE Pea, Nutrabay Pure, TrueBasics, or Carbamide Forte Pea Isolate.
-- Sucralose products (MuscleBlaze, Kapiva, Fast&Up, Nakpro flavored, GNC, Optimum, Nutrabay Gold) are inappropriate for sensitive guts.
-- Vary picks across sessions — do NOT default to the same one or two brands for every profile.
-- If budget tier is "value" (<₹1,500/kg), pick from GetMyMettle, Nakpro, Nutrabay Pure, AS-IT-IS, Kapiva.
-- If luxury tier, use Cosmix, Wellbeing Nutrition, Origin, TrueBasics, Optimum.
-- The budgetMatch must be a DIFFERENT brand from topMatch and clearly cheaper per kg.
+RULES
+- idealMatch MUST come from the CANDIDATE POOL above — do NOT invent brands or bypass the filters.
+- closeMatch MUST be a different brand from idealMatch, also from the candidate pool.
+- If flavor pref is set and the ideal brand does NOT offer it (check flavors list), say so plainly in "marketVerdict"; do NOT silently default to Chocolate.
+- Vary picks across profiles — avoid always defaulting to Nakpro or Earthful.
+- Women + gut issues → Cosmix / Origin / OZiva / Yogabar are stronger picks than Nakpro or MuscleBlaze.
 
-Return STRICT JSON only (no markdown, no fencing) matching this exact shape:
+Return STRICT JSON only (no markdown, no fencing), matching this exact shape:
 {
-  "headline": "One short sentence (≤18 words) addressed to ${profile.name.split(" ")[0]} — states the market recommendation, not a bespoke formulation.",
-  "dailyProtocol": "2-3 sentences prescribing how to split ${proteinNeed}g across the day, timing, and how to rotate flavors to prevent fatigue.",
-  "marketVerdict": "2-3 sentences of honest market analysis for this specific body — why the top match wins for them and where the budget alt trades off.",
-  "topMatch": { "brand": "<exact brand name from catalogue>", "productName": "<exact product name>", "why": "1-2 sentences on why this specific product fits this body." },
-  "budgetMatch": { "brand": "<different brand>", "productName": "<exact product name>", "why": "1-2 sentences on the price/tradeoff." }
+  "headline": "One short sentence (≤18 words) addressed to ${profile.name.split(" ")[0]} — states the market recommendation.",
+  "dailyProtocol": "2-3 sentences on how to split ${proteinNeed}g across the day, timing, and flavor rotation guidance.",
+  "marketVerdict": "2-3 sentences of honest market analysis. If the ideal brand doesn't offer the chosen flavor, say so here.",
+  "idealMatch":  { "brand": "<from candidate pool>", "productName": "<exact>", "why": "1-2 sentences on fit." },
+  "closeMatch":  { "brand": "<different brand from candidate pool>", "productName": "<exact>", "why": "1-2 sentences on what's different." }
 }`;
 }
 
 function fallback(input: GeminiRecommendationInput): GeminiRecommendation {
   const first = input.profile.name.split(" ")[0] || "there";
-  const isWomanGut = input.profile.sex === "female" && (input.profile.gut === "bloating" || input.profile.gut === "ibs");
-  const topBrand = isWomanGut ? "Cosmix" : input.profile.budget === "value" ? "GetMyMettle" : "Origin Nutrition";
-  const budBrand = input.profile.budget === "value" ? "AS-IT-IS Nutrition" : "Nakpro";
-  const findBy = (b: string) => PRODUCTS.find((p) => p.brand === b);
+  const pool = input.candidatePool;
+  const idealName  = pool[0];
+  const closeName  = pool.find((c) => c.brand !== idealName?.brand) ?? pool[1] ?? null;
+  const findExact = (brand: string, pn: string) =>
+    PRODUCTS.find((p) => p.brand === brand && p.productName === pn);
+  const idealP  = idealName  ? findExact(idealName.brand,  idealName.productName)  ?? null : null;
+  const closeP  = closeName  ? findExact(closeName.brand,  closeName.productName)  ?? null : null;
+
+  const idealBrand = idealP?.brand ?? "our top pick";
+  const closeBrand = closeP?.brand ?? "the runner-up";
   return {
-    headline: `${first}, from what's on Indian shelves right now, ${topBrand} is the closest fit for your body.`,
+    headline: `${first}, based on your profile, ${idealBrand} is the closest fit from Indian shelves right now.`,
     dailyProtocol: `Split ${input.proteinNeed}g across 2-3 doses — post-training, mid-morning, optionally pre-sleep. Rotate flavor daily to avoid palate fatigue over 12+ weeks.`,
-    marketVerdict: `${topBrand} wins on gut tolerance and label cleanliness for this profile. ${budBrand} is the smart price play if you'd rather save ~30-40% per kg and accept a simpler ingredient story.`,
-    topMatch: findBy(topBrand) ? { brand: topBrand, productName: findBy(topBrand)!.productName, why: "Cleanest label match for your gut and sweetener preferences." } : null,
-    budgetMatch: findBy(budBrand) ? { brand: budBrand, productName: findBy(budBrand)!.productName, why: "Best macro-per-rupee at your budget tier." } : null,
+    marketVerdict: `${idealBrand} wins on gut alignment and label cleanliness for your profile. ${closeBrand} is a solid alternative on macros with a slightly different trade-off.`,
+    idealMatch: idealP ? { brand: idealP.brand, productName: idealP.productName, why: "Best rank score in your filtered pool." } : null,
+    closeMatch: closeP ? { brand: closeP.brand, productName: closeP.productName, why: "Next-best rank score in your filtered pool." } : null,
     source: "fallback",
   };
 }
@@ -104,7 +117,7 @@ export const getGeminiRecommendation = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => input as GeminiRecommendationInput)
   .handler(async ({ data }): Promise<GeminiRecommendation> => {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return fallback(data);
+    if (!apiKey) { console.error("[Gemini] GEMINI_API_KEY missing — using fallback"); return fallback(data); }
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -127,8 +140,8 @@ export const getGeminiRecommendation = createServerFn({ method: "POST" })
         headline: parsed.headline || fb.headline,
         dailyProtocol: parsed.dailyProtocol || fb.dailyProtocol,
         marketVerdict: parsed.marketVerdict || fb.marketVerdict,
-        topMatch: (parsed.topMatch && parsed.topMatch.brand) ? parsed.topMatch : fb.topMatch,
-        budgetMatch: (parsed.budgetMatch && parsed.budgetMatch.brand) ? parsed.budgetMatch : fb.budgetMatch,
+        idealMatch: parsed.idealMatch?.brand ? parsed.idealMatch : fb.idealMatch,
+        closeMatch: parsed.closeMatch?.brand ? parsed.closeMatch : fb.closeMatch,
         source: "gemini",
       };
     } catch (err) {
