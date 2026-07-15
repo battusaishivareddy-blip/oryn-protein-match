@@ -14,8 +14,8 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "Oryn — Find the plant protein that fits you. In 60 seconds." },
       { name: "description", content: "India's first AI protein-matching engine. Cross-referenced against the entire Indian market. 100% free analysis." },
-      { property: "og:title", content: "Oryn — India's First AI Protein-Matching Engine" },
-      { property: "og:description", content: "Made in India. Made for India. Cross-referenced against the entire Indian market." },
+      { property: "og:title", content: "Oryn — Find the plant protein that fits you. In 60 seconds." },
+      { property: "og:description", content: "India's first AI protein-matching engine. Cross-referenced against the entire Indian market. 100% free analysis." },
     ],
   }),
   component: Home,
