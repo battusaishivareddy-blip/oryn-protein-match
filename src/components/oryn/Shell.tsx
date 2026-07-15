@@ -2,21 +2,20 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 export function OrynLeaf({ className = "h-6 w-6" }: { className?: string }) {
-  // Filled teardrop leaf with center vein — matches the Oryn brand mark.
+  // Black leaf blade with a green petiole (stalk) at the top.
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
+    <svg viewBox="0 -6 32 38" className={className} aria-hidden="true">
+      {/* green petiole */}
+      <path d="M16 4 C 14 0, 11 -3, 8 -5"
+        stroke="#4A9040" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+      {/* black leaf blade */}
       <path
-        d="M16 2 C 24 8, 27 16, 22 24 C 19.5 28, 17 29.5, 16 30 C 15 29.5, 12.5 28, 10 24 C 5 16, 8 8, 16 2 Z"
+        d="M16 4 C 24 10, 27 18, 22 26 C 19.5 30, 17 31.5, 16 32 C 15 31.5, 12.5 30, 10 26 C 5 18, 8 10, 16 4 Z"
         fill="currentColor"
       />
-      <path
-        d="M16 6 L 16 28"
-        stroke="var(--color-cream, #f5efe4)"
-        strokeWidth="1.1"
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.65"
-      />
+      {/* center vein */}
+      <path d="M16 8 L 16 30" stroke="var(--color-cream, #f5efe4)"
+        strokeWidth="1.1" strokeLinecap="round" fill="none" opacity="0.6" />
     </svg>
   );
 }
