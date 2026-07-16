@@ -722,16 +722,34 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
 
         {/* Hook — placed AFTER the table */}
         <div className="mt-10 rounded-md border border-ink bg-ink text-cream p-8 md:p-12">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-accent">The Oryn Method</p>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-accent">Market Reality · The Oryn Method</p>
           <h3 className="serif text-3xl md:text-4xl mt-4 leading-tight">
-            No flavour fatigue here.
+            You've been sold a 1&nbsp;kg tub of one flavour. That's the problem.
           </h3>
-          <p className="mt-6 text-cream/85 leading-relaxed max-w-3xl">
-            Think of it like a booster sachet — every scoop is a clean, customised base, and you choose the flavour
-            layer on top. Stick to your favourite from our 8 flavours, or switch it up every single day. Either way,
-            the base underneath stays built around you.
-          </p>
+          <div className="mt-6 space-y-5 text-cream/85 leading-relaxed max-w-3xl">
+            <p>
+              Every plant protein sold in India today ships as a locked-in 1&nbsp;kg tub of a single flavour and a
+              single generic formula. By week two, most people quietly stop drinking it — flavour fatigue, bloating,
+              a base that was never built for their gut, their diet or their allergens in the first place.
+            </p>
+            <p>
+              Oryn flips that. Your base is engineered around <em>you</em> — your diet (vegan or vegetarian), your gut
+              (sensitive, dairy-free, low-FODMAP), your allergen profile, your activity load and your daily protein
+              need. No fillers you didn't ask for. No sweetener your system rejects. No stabilisers hiding in the
+              fine print.
+            </p>
+            <p>
+              On top of that clean, customised base, you pick from <strong className="text-cream">8 flavours</strong> —
+              Chocolate, Vanilla, Coffee, Matcha, Mango, Cookies&nbsp;&amp;&nbsp;Cream, Strawberry and Kulfi. Lock in
+              your favourite, or rotate a new one every day like a booster sachet. The base underneath stays built
+              around you, either way.
+            </p>
+            <p className="text-cream">
+              One clean base. Eight flavours. Zero flavour fatigue. That's the shift.
+            </p>
+          </div>
         </div>
+
       </div>
 
       {/* Calibration survey */}

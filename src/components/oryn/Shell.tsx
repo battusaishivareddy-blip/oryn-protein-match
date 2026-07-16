@@ -2,15 +2,15 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 export function OrynLeaf({ className = "h-6 w-6" }: { className?: string }) {
-  // Black leaf blade with a green petiole (stalk) at the top.
+  // Black leaf blade pointing up, with a green petiole (stalk) at the bottom — natural orientation.
   return (
-    <svg viewBox="0 -6 32 38" className={className} aria-hidden="true">
-      {/* green petiole */}
-      <path d="M16 4 C 14 0, 11 -3, 8 -5"
+    <svg viewBox="0 0 32 44" className={className} aria-hidden="true">
+      {/* green petiole at the base */}
+      <path d="M16 32 C 14 36, 11 39, 8 41"
         stroke="#4A9040" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-      {/* black leaf blade */}
+      {/* black leaf blade pointing up */}
       <path
-        d="M16 4 C 24 10, 27 18, 22 26 C 19.5 30, 17 31.5, 16 32 C 15 31.5, 12.5 30, 10 26 C 5 18, 8 10, 16 4 Z"
+        d="M16 32 C 24 26, 27 18, 22 10 C 19.5 6, 17 4.5, 16 4 C 15 4.5, 12.5 6, 10 10 C 5 18, 8 26, 16 32 Z"
         fill="currentColor"
       />
       {/* center vein */}
