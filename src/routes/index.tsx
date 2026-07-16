@@ -63,7 +63,7 @@ function Home() {
   useEffect(() => {
     const key = crypto.randomUUID();
     sessionKey.current = key;
-    supabase.from("oryn_visits").insert({ visit_key: key, path: "/" }).then(() => {});
+    recordVisit({ data: { visitKey: key, path: "/" } }).catch(() => {});
   }, []);
 
   const profile: Profile | null = useMemo(() => {
