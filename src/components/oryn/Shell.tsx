@@ -5,9 +5,10 @@ export function OrynLeaf({ className = "h-6 w-6" }: { className?: string }) {
   // Black leaf blade pointing up, with a green petiole (stalk) at the bottom — natural orientation.
   return (
     <svg viewBox="0 0 32 44" className={className} aria-hidden="true">
-      {/* green petiole at the base */}
-      <path d="M16 32 C 14 36, 11 39, 8 41"
+      {/* green petiole at the base — straight */}
+      <path d="M16 32 L 16 42"
         stroke="#4A9040" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+
       {/* black leaf blade pointing up */}
       <path
         d="M16 32 C 24 26, 27 18, 22 10 C 19.5 6, 17 4.5, 16 4 C 15 4.5, 12.5 6, 10 10 C 5 18, 8 26, 16 32 Z"
