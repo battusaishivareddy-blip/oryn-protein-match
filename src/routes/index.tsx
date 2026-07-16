@@ -677,7 +677,11 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
       {/* Market Reality — comparison table FIRST */}
       <div className="mt-16">
         <p className="oryn-chip mb-4">Market Reality · Cross-Reference Matrix</p>
-        <h3 className="serif text-3xl text-ink">Product Comparison</h3>
+        <h3 className="serif text-3xl text-ink">The Entire Indian Plant Protein Market</h3>
+        <p className="mt-3 text-ink-muted max-w-3xl">
+          Every major plant protein sold in India — cross-referenced side by side. Your Top Match and Smart
+          Alternative are highlighted below.
+        </p>
         <div className="mt-6 overflow-x-auto border border-line rounded-md">
           <table className="w-full text-sm">
             <thead className="bg-cream-deep/60 text-[10px] uppercase tracking-[0.16em] text-ink-muted">
@@ -688,17 +692,30 @@ function Results({ profile, bmi, proteinNeed, matches, aiRec, aiLoading, survey,
               </tr>
             </thead>
             <tbody>
-              {[idealProduct, closeProduct].filter(Boolean).map((p, idx) => (
-                <tr key={p!.brand + idx} className={idx === 0 ? "bg-accent/5 border-t border-line" : "border-t border-line"}>
-                  <td className="px-4 py-3 serif text-ink">{p!.brand} <span className="text-ink-muted text-xs">· {p!.productName}</span></td>
-                  <td className="px-4 py-3">{p!.base}</td>
-                  <td className="px-4 py-3">{p!.proteinPerServing}</td>
-                  <td className="px-4 py-3">₹{p!.pricePerKg.toLocaleString("en-IN")}</td>
-                  <td className="px-4 py-3">{p!.sweetener}</td>
-                  <td className="px-4 py-3">{p!.gutFriendly ? "Yes" : "No"}</td>
-                  <td className="px-4 py-3">{p!.flavors.slice(0, 3).join(", ")}</td>
-                </tr>
-              ))}
+              {PRODUCTS.map((p, idx) => {
+                const isIdeal = idealProduct && p.brand === idealProduct.brand && p.productName === idealProduct.productName;
+                const isClose = closeProduct && p.brand === closeProduct.brand && p.productName === closeProduct.productName;
+                const rowClass = isIdeal
+                  ? "bg-accent/10 border-t border-line"
+                  : isClose
+                  ? "bg-accent/5 border-t border-line"
+                  : "border-t border-line";
+                return (
+                  <tr key={p.brand + p.productName + idx} className={rowClass}>
+                    <td className="px-4 py-3 serif text-ink whitespace-nowrap">
+                      {p.brand} <span className="text-ink-muted text-xs">· {p.productName}</span>
+                      {isIdeal && <span className="ml-2 text-[9px] uppercase tracking-[0.18em] text-accent">Top Match</span>}
+                      {isClose && <span className="ml-2 text-[9px] uppercase tracking-[0.18em] text-accent">Smart Alt</span>}
+                    </td>
+                    <td className="px-4 py-3">{p.base}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{p.proteinPerServing}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">₹{p.pricePerKg.toLocaleString("en-IN")}</td>
+                    <td className="px-4 py-3">{p.sweetener}</td>
+                    <td className="px-4 py-3">{p.gutFriendly ? "Yes" : "No"}</td>
+                    <td className="px-4 py-3">{p.flavors.slice(0, 3).join(", ")}{p.flavors.length > 3 ? "…" : ""}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
