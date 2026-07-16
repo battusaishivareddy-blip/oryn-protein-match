@@ -191,7 +191,7 @@ function Dashboard({ password }: { password: string }) {
             <p className="oryn-chip mb-3">Analytics Console</p>
             <h1 className="serif text-4xl text-ink">Oryn Data Vault</h1>
           </div>
-          <button onClick={() => { sessionStorage.removeItem("oryn_admin"); location.reload(); }}
+          <button onClick={() => { sessionStorage.removeItem("oryn_admin_pw"); location.reload(); }}
             className="text-xs uppercase tracking-[0.2em] text-ink-muted hover:text-ink">Sign out</button>
         </div>
 
