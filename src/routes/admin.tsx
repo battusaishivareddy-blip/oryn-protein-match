@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, PieChart, Pie, Cell } from "recharts";
-import { supabase } from "@/integrations/supabase/client";
+import { getAdminData } from "@/lib/oryn-backend.functions";
 import { OrynHeader } from "@/components/oryn/Shell";
 
 export const Route = createFileRoute("/admin")({
@@ -15,7 +15,6 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
-const ADMIN_PASSWORD = "oryn2026";
 
 type Session = {
   id: string; session_key: string; completed: boolean; last_completed_step: number;
@@ -33,15 +32,19 @@ type Waitlist = {
 };
 
 function Admin() {
-  const [authed, setAuthed] = useState(false);
+  const [password, setPassword] = useState<string | null>(null);
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && sessionStorage.getItem("oryn_admin") === "1") setAuthed(true);
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("oryn_admin_pw");
+      if (stored) setPassword(stored);
+    }
   }, []);
 
-  if (!authed) {
+  if (!password) {
     return (
       <div className="min-h-screen bg-cream">
         <OrynHeader />
@@ -49,26 +52,37 @@ function Admin() {
           <p className="oryn-chip mb-6">Restricted</p>
           <h1 className="serif text-4xl text-ink">Analytics Console</h1>
           <p className="text-ink-muted mt-3 text-sm">Enter your access phrase to view the vault.</p>
-          <form onSubmit={(e) => {
+          <form onSubmit={async (e) => {
             e.preventDefault();
-            if (pw === ADMIN_PASSWORD) { sessionStorage.setItem("oryn_admin", "1"); setAuthed(true); }
-            else setErr(true);
+            setChecking(true);
+            setErr(false);
+            try {
+              await getAdminData({ data: { password: pw } });
+              sessionStorage.setItem("oryn_admin_pw", pw);
+              setPassword(pw);
+            } catch {
+              setErr(true);
+            } finally {
+              setChecking(false);
+            }
           }} className="mt-8 space-y-4">
             <input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(false); }}
               placeholder="Access phrase"
               className="w-full border-0 border-b border-line bg-transparent py-3 text-lg text-ink focus:outline-none focus:border-accent" />
             {err && <p className="text-sm text-destructive">Incorrect access phrase.</p>}
-            <button type="submit" className="oryn-btn oryn-btn-accent">Unlock →</button>
+            <button type="submit" disabled={checking} className="oryn-btn oryn-btn-accent">
+              {checking ? "Verifying…" : "Unlock →"}
+            </button>
           </form>
         </div>
       </div>
     );
   }
 
-  return <Dashboard />;
+  return <Dashboard password={password} />;
 }
 
-function Dashboard() {
+function Dashboard({ password }: { password: string }) {
   const [visits, setVisits] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [waitlist, setWaitlist] = useState<Waitlist[]>([]);
@@ -78,16 +92,17 @@ function Dashboard() {
   useEffect(() => {
     if (typeof window !== "undefined") setOrigin(window.location.origin);
     (async () => {
-      const [{ count }, s, w] = await Promise.all([
-        supabase.from("oryn_visits").select("id", { count: "exact", head: true }),
-        supabase.from("oryn_sessions").select("*").order("created_at", { ascending: false }),
-        supabase.from("oryn_waitlist").select("*").order("created_at", { ascending: false }),
-      ]);
-      setVisits(count ?? 0);
-      setSessions((s.data ?? []) as Session[]);
-      setWaitlist((w.data ?? []) as Waitlist[]);
+      try {
+        const res = await getAdminData({ data: { password } });
+        setVisits(res.visits);
+        setSessions((res.sessions ?? []) as Session[]);
+        setWaitlist((res.waitlist ?? []) as Waitlist[]);
+      } catch (e) {
+        console.error(e);
+      }
     })();
-  }, []);
+  }, [password]);
+
 
   const started = sessions.length;
   const completedQuiz = sessions.filter((s) => s.last_completed_step >= 11).length;
@@ -176,7 +191,7 @@ function Dashboard() {
             <p className="oryn-chip mb-3">Analytics Console</p>
             <h1 className="serif text-4xl text-ink">Oryn Data Vault</h1>
           </div>
-          <button onClick={() => { sessionStorage.removeItem("oryn_admin"); location.reload(); }}
+          <button onClick={() => { sessionStorage.removeItem("oryn_admin_pw"); location.reload(); }}
             className="text-xs uppercase tracking-[0.2em] text-ink-muted hover:text-ink">Sign out</button>
         </div>
 

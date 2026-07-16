@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { supabase } from "@/integrations/supabase/client";
 import { OrynHeader, OrynFooter, OrynBotanical, ScreenFrame } from "@/components/oryn/Shell";
 import { getGeminiRecommendation, type GeminiRecommendation } from "@/lib/gemini.functions";
+import {
+  recordVisit, startSession, updateSessionResponses, finalizeSession, recordMatches, submitWaitlist as submitWaitlistFn,
+} from "@/lib/oryn-backend.functions";
 import {
   computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS, CALIBRATION_BRANDS,
   FLAVOR_LABELS, describeDifference, type FlavorKey, type Profile, type Product, type MatchResult,
@@ -61,7 +63,7 @@ function Home() {
   useEffect(() => {
     const key = crypto.randomUUID();
     sessionKey.current = key;
-    supabase.from("oryn_visits").insert({ visit_key: key, path: "/" }).then(() => {});
+    recordVisit({ data: { visitKey: key, path: "/" } }).catch(() => {});
   }, []);
 
   const profile: Profile | null = useMemo(() => {
@@ -81,15 +83,16 @@ function Home() {
 
   async function persistSession(patch: Record<string, unknown>) {
     if (!sessionId) {
-      const { data } = await supabase.from("oryn_sessions").insert({
-        session_key: sessionKey.current || crypto.randomUUID(),
-        last_completed_step: 1,
-        user_name: name || null,
-        responses: patch as any,
-      }).select("id").maybeSingle();
-      if (data?.id) setSessionId(data.id);
+      const res = await startSession({
+        data: {
+          sessionKey: sessionKey.current || crypto.randomUUID(),
+          userName: name || null,
+          responses: patch,
+        },
+      });
+      if (res.id) setSessionId(res.id);
     } else {
-      await supabase.from("oryn_sessions").update({ responses: patch as any }).eq("id", sessionId);
+      await updateSessionResponses({ data: { id: sessionId, responses: patch } });
     }
   }
 
@@ -105,15 +108,16 @@ function Home() {
     if (!profile) return;
     setStep("processing");
     const responses = { ...profile };
-    const { data } = await supabase.from("oryn_sessions").upsert({
-      session_key: sessionKey.current,
-      completed: false,
-      last_completed_step: 11,
-      user_name: profile.name,
-      bmi, protein_need: proteinNeed,
-      responses,
-    }, { onConflict: "session_key" }).select("id").maybeSingle();
-    if (data?.id) setSessionId(data.id);
+    const res = await finalizeSession({
+      data: {
+        sessionKey: sessionKey.current,
+        userName: profile.name,
+        bmi,
+        proteinNeed,
+        responses,
+      },
+    });
+    if (res.id) setSessionId(res.id);
   }
 
   useEffect(() => {
@@ -145,10 +149,13 @@ function Home() {
 
     const t = setTimeout(async () => {
       if (matches && sessionId) {
-        await supabase.from("oryn_sessions").update({
-          matched_ideal_brand: matches.ideal?.product.brand ?? null,
-          matched_budget_brand: matches.close?.product.brand ?? null,
-        }).eq("id", sessionId);
+        await recordMatches({
+          data: {
+            id: sessionId,
+            ideal: matches.ideal?.product.brand ?? null,
+            budget: matches.close?.product.brand ?? null,
+          },
+        });
       }
       if (!cancelled) setStep("results");
     }, 5200);
@@ -157,28 +164,25 @@ function Home() {
 
   async function submitWaitlist() {
     if (!profile || !matches) return;
-    await supabase.from("oryn_waitlist").insert({
-      session_id: sessionId,
-      name: profile.name,
-      email, phone,
-      matched_ideal_brand: matches.ideal?.product.brand ?? null,
-      matched_budget_brand: matches.close?.product.brand ?? null,
-      bmi, protein_need: proteinNeed,
-      survey_current_brand: surveyBrand || null,
-      survey_frustration: frustration || null,
-      survey_sachet_interest: sachet || null,
-      responses: profile,
+    await submitWaitlistFn({
+      data: {
+        sessionId,
+        name: profile.name,
+        email,
+        phone,
+        matchedIdeal: matches.ideal?.product.brand ?? null,
+        matchedBudget: matches.close?.product.brand ?? null,
+        bmi,
+        proteinNeed,
+        surveyBrand: surveyBrand || null,
+        frustration: frustration || null,
+        sachet: sachet || null,
+        responses: profile,
+      },
     });
-    if (sessionId) {
-      await supabase.from("oryn_sessions").update({
-        completed: true,
-        survey_current_brand: surveyBrand || null,
-        survey_frustration: frustration || null,
-        survey_sachet_interest: sachet || null,
-      }).eq("id", sessionId);
-    }
     setStep("thanks");
   }
+
 
   const progress = (() => {
     const idx = QUIZ_STEPS.indexOf(step as any);
