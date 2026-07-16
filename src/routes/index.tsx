@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { supabase } from "@/integrations/supabase/client";
 import { OrynHeader, OrynFooter, OrynBotanical, ScreenFrame } from "@/components/oryn/Shell";
 import { getGeminiRecommendation, type GeminiRecommendation } from "@/lib/gemini.functions";
+import {
+  recordVisit, startSession, updateSessionResponses, finalizeSession, recordMatches, submitWaitlist as submitWaitlistFn,
+} from "@/lib/oryn-backend.functions";
 import {
   computeBMI, bmiClass, computeProteinNeed, findMatches, PRODUCTS, CALIBRATION_BRANDS,
   FLAVOR_LABELS, describeDifference, type FlavorKey, type Profile, type Product, type MatchResult,
