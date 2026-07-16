@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, PieChart, Pie, Cell } from "recharts";
-import { supabase } from "@/integrations/supabase/client";
+import { getAdminData } from "@/lib/oryn-backend.functions";
 import { OrynHeader } from "@/components/oryn/Shell";
 
 export const Route = createFileRoute("/admin")({
@@ -15,7 +15,6 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
-const ADMIN_PASSWORD = "oryn2026";
 
 type Session = {
   id: string; session_key: string; completed: boolean; last_completed_step: number;
