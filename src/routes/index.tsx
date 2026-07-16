@@ -83,15 +83,16 @@ function Home() {
 
   async function persistSession(patch: Record<string, unknown>) {
     if (!sessionId) {
-      const { data } = await supabase.from("oryn_sessions").insert({
-        session_key: sessionKey.current || crypto.randomUUID(),
-        last_completed_step: 1,
-        user_name: name || null,
-        responses: patch as any,
-      }).select("id").maybeSingle();
-      if (data?.id) setSessionId(data.id);
+      const res = await startSession({
+        data: {
+          sessionKey: sessionKey.current || crypto.randomUUID(),
+          userName: name || null,
+          responses: patch,
+        },
+      });
+      if (res.id) setSessionId(res.id);
     } else {
-      await supabase.from("oryn_sessions").update({ responses: patch as any }).eq("id", sessionId);
+      await updateSessionResponses({ data: { id: sessionId, responses: patch } });
     }
   }
 
