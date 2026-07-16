@@ -108,15 +108,16 @@ function Home() {
     if (!profile) return;
     setStep("processing");
     const responses = { ...profile };
-    const { data } = await supabase.from("oryn_sessions").upsert({
-      session_key: sessionKey.current,
-      completed: false,
-      last_completed_step: 11,
-      user_name: profile.name,
-      bmi, protein_need: proteinNeed,
-      responses,
-    }, { onConflict: "session_key" }).select("id").maybeSingle();
-    if (data?.id) setSessionId(data.id);
+    const res = await finalizeSession({
+      data: {
+        sessionKey: sessionKey.current,
+        userName: profile.name,
+        bmi,
+        proteinNeed,
+        responses,
+      },
+    });
+    if (res.id) setSessionId(res.id);
   }
 
   useEffect(() => {
@@ -148,10 +149,13 @@ function Home() {
 
     const t = setTimeout(async () => {
       if (matches && sessionId) {
-        await supabase.from("oryn_sessions").update({
-          matched_ideal_brand: matches.ideal?.product.brand ?? null,
-          matched_budget_brand: matches.close?.product.brand ?? null,
-        }).eq("id", sessionId);
+        await recordMatches({
+          data: {
+            id: sessionId,
+            ideal: matches.ideal?.product.brand ?? null,
+            budget: matches.close?.product.brand ?? null,
+          },
+        });
       }
       if (!cancelled) setStep("results");
     }, 5200);
@@ -160,28 +164,25 @@ function Home() {
 
   async function submitWaitlist() {
     if (!profile || !matches) return;
-    await supabase.from("oryn_waitlist").insert({
-      session_id: sessionId,
-      name: profile.name,
-      email, phone,
-      matched_ideal_brand: matches.ideal?.product.brand ?? null,
-      matched_budget_brand: matches.close?.product.brand ?? null,
-      bmi, protein_need: proteinNeed,
-      survey_current_brand: surveyBrand || null,
-      survey_frustration: frustration || null,
-      survey_sachet_interest: sachet || null,
-      responses: profile,
+    await submitWaitlistFn({
+      data: {
+        sessionId,
+        name: profile.name,
+        email,
+        phone,
+        matchedIdeal: matches.ideal?.product.brand ?? null,
+        matchedBudget: matches.close?.product.brand ?? null,
+        bmi,
+        proteinNeed,
+        surveyBrand: surveyBrand || null,
+        frustration: frustration || null,
+        sachet: sachet || null,
+        responses: profile,
+      },
     });
-    if (sessionId) {
-      await supabase.from("oryn_sessions").update({
-        completed: true,
-        survey_current_brand: surveyBrand || null,
-        survey_frustration: frustration || null,
-        survey_sachet_interest: sachet || null,
-      }).eq("id", sessionId);
-    }
     setStep("thanks");
   }
+
 
   const progress = (() => {
     const idx = QUIZ_STEPS.indexOf(step as any);
