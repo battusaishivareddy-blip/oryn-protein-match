@@ -379,6 +379,66 @@ function Landing({ onStart }: { onStart: () => void }) {
           <p className="serif text-2xl md:text-3xl text-ink max-w-3xl leading-snug">
             "Made in India. Made for India. Cross-referenced against the entire Indian market."
           </p>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {[
+              {
+                k: "Fuel, Personalized.",
+                d: "11 diagnostic metrics shape a daily protein protocol calibrated to your body and routine.",
+              },
+              {
+                k: "Nutrition That Knows You.",
+                d: "We map your gut, allergens, sweetener preference and objective against real Indian products.",
+              },
+              {
+                k: "Protein, Reimagined.",
+                d: "A clean base designed around your needs, with eight rotating flavours and zero flavour fatigue.",
+              },
+            ].map((c) => (
+              <button
+                key={c.k}
+                type="button"
+                onClick={onStart}
+                className="oryn-card group text-left hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label={`${c.k} Start your protein match`}
+              >
+                <span className="text-[10px] uppercase tracking-[0.24em] text-accent">Oryn Fuel</span>
+                <span className="serif mt-3 block text-xl text-ink">{c.k}</span>
+                <span className="mt-3 block text-sm leading-relaxed text-ink-soft">{c.d}</span>
+                <span className="mt-6 inline-flex text-xs uppercase tracking-[0.16em] text-accent">
+                  Find my fuel →
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 py-20">
+        <div className="grid items-center gap-12 md:grid-cols-[1fr_1.4fr]">
+          <div>
+            <p className="oryn-chip">The Oryn Method</p>
+            <h2 className="serif mt-6 text-4xl text-ink">Three steps to find your fuel.</h2>
+          </div>
+          <ol className="space-y-6 text-ink-soft">
+            {[
+              ["01", "Diagnostic Sweep", "11 focused questions capture your physical, dietary and gut profile."],
+              ["02", "Market Cross-Reference", "Plant proteins across the Indian market are filtered and scored against your needs."],
+              ["03", "Your Fuel Match", "Receive an ideal match, a close alternative and a practical daily protocol."],
+            ].map(([n, t, d]) => (
+              <li key={n} className="grid grid-cols-[auto_1fr] items-start gap-6 border-b border-line pb-6">
+                <span className="serif text-3xl text-accent">{n}</span>
+                <div>
+                  <p className="serif text-xl text-ink">{t}</p>
+                  <p className="mt-1 text-sm">{d}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="mt-16 text-center">
+          <button onClick={onStart} className="oryn-btn oryn-btn-accent px-8 py-4 text-base">
+            Find My Oryn Fuel →
+          </button>
         </div>
       </section>
     </>
